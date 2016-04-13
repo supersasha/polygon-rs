@@ -1,0 +1,13 @@
+[package]
+name = "polygon"
+version = "0.1.0"
+authors = ["Alexander Ovchinnikov <aovchinn@machinezone.com>"]
+
+[features]
+default = ["fann/double"]
+
+[dependencies]
+fann = "*"
+libc = "*"
+rand = "0.3"
+
