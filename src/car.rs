@@ -3,8 +3,8 @@ use std::rc::Rc;
 use std::f64::consts::PI;
 
 pub struct Car {
-    center: Pt,
-    course: Pt,
+    pub center: Pt,
+    pub course: Pt,
     base: f64,
     length: f64,
     width: f64,
@@ -89,9 +89,11 @@ impl Car {
         // TODO: check correctness: if we calculate things on right time
         self.mv(dt);
         self.recalc_path();
+        //println!("path={:?}", self.path);
         let intscts = geom::figures_intersect(
             self.path.sects.as_ref(),
             self.walls.sects.as_ref());
+        //println!("intscts={}", intscts);
         if intscts {
             self.center = center;
             self.course = course;

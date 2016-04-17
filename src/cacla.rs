@@ -6,15 +6,22 @@ use rand;
 
 #[derive(Clone)]
 pub struct Range {
-    from: FannType,
-    to: FannType,
+    pub lo: FannType,
+    pub hi: FannType,
 }
 
 impl Range {
-    pub fn new(from: FannType, to: FannType) -> Range {
+    pub fn new(lo: FannType, hi: FannType) -> Range {
         Range {
-            from: from,
-            to: to
+            lo: lo,
+            hi: hi
+        }
+    }
+
+    pub fn zero() -> Range {
+        Range {
+            lo: 0.0,
+            hi: 0.0
         }
     }
 }

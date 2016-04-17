@@ -4,12 +4,44 @@ use car::Car;
 use geom::{Figure, Pt};
 use track::{clover};
 use cacla::{Cacla, Range};
+use std::f64::consts::PI;
+
+const TRANGE: Range = Range{lo: -1.0, hi: 1.0};
+
+pub struct MinMax {
+    ranges: Vec<Range>,
+}
+
+impl MinMax {
+    fn new(ranges: &Vec<Range>) -> MinMax {
+        MinMax {
+            ranges: ranges.clone()
+        }
+    }
+    fn norm(&self, inp: &[f64], out: &mut [f64]) {
+        let n = inp.len();
+        for i in 0..n {
+            out[i] = normalize(&self.ranges[i], inp[i], &TRANGE);
+        }
+    }
+    
+    fn denorm(&self, inp: &[f64], out: &mut [f64]) {
+        let n = inp.len();
+        for i in 0..n {
+            out[i] = normalize(&TRANGE, inp[i], &self.ranges[i]);
+        }
+    }
+}
+
+fn normalize(from: &Range, x: f64, to: &Range) -> f64 {
+    to.lo + (x - from.lo) * (to.hi - to.lo) / (from.hi - from.lo)
+}
 
 pub struct Polygon {
     pub car: RefCell<Car>,
     pub walls: Rc<Figure>,
     pub state: Vec<f64>,
-    pub prev_state: Vec<f64>,
+    //pub prev_state: Vec<f64>,
     last_action: Vec<f64>,
 }
 
@@ -24,7 +56,7 @@ impl Polygon {
             car: car,
             walls: walls,
             state: state,
-            prev_state: Vec::with_capacity(state_dim),
+            //prev_state: Vec::with_capacity(state_dim),
             last_action: last_action
         }
     }
@@ -53,7 +85,7 @@ impl Polygon {
     
     fn recalc_state(&mut self) {
         // TODO
-        self.prev_state.clone_from(&self.state);
+        //self.prev_state.clone_from(&self.state);
         let n = self.car.borrow().isxs.len(); 
         for (i, isx) in self.car.borrow().isxs.iter().enumerate() {
             self.state[i] = isx.dist;
@@ -65,6 +97,7 @@ impl Polygon {
 
 pub fn run(ncycles: usize) {
     let walls = Rc::new(clover(2.0, 10.0));
+    //println!("Walls: {:?}", walls);
     let nrays = 36;
     let action_dim = 2;
     let state_dim = nrays + 2;
@@ -78,7 +111,14 @@ pub fn run(ncycles: usize) {
     let mut world = Polygon::new(car, walls.clone(), state_dim, action_dim);
 
     let mut state_ranges = Vec::new();
-    state_ranges.resize(state_dim, Range::new(-1.0, 1.0));
+    state_ranges.resize(state_dim, Range::zero());
+    for i in 0..36 {
+        state_ranges[i] = Range::new(0.0, 100.0);
+    }
+    state_ranges[36] = Range::new(-1.0, 1.0);
+    state_ranges[37] = Range::new(-PI/4.0, PI/4.0);
+
+    let minmax = MinMax::new(&state_ranges);
     let learner = RefCell::new(Cacla::new(&state_ranges,
                                 action_dim as u32,
                                 100,   // hidden
@@ -88,12 +128,25 @@ pub fn run(ncycles: usize) {
                                 0.1));  // sigma
     
     // TODO: complete; normalize state, action
+    let mut s = world.state.clone();
+    let mut new_s = world.state.clone();
+    let reward_range = Range::new(-4.0, 1.0);
     for i in 0..ncycles {
+        minmax.norm(world.state.as_ref(), s.as_mut());
         let a = learner.borrow().get_action(world.state.as_ref());
         world.act(a.borrow().as_ref());
         let r = world.reward();
-        learner.borrow_mut().step(world.prev_state.as_ref(),
-                                  world.state.as_ref(),
-                                  a.borrow().as_ref(), r);
+        minmax.norm(world.state.as_ref(), new_s.as_mut());
+        learner.borrow_mut().step(s.as_ref(),
+                                  new_s.as_ref(),
+                                  a.borrow().as_ref(),
+                                  normalize(&reward_range, r, &TRANGE));
+        if i % 10000 == 0 {
+            println!("{:?} {:?} {:?} {:?}",
+                     i,
+                     a.borrow(),
+                     world.car.borrow().center,
+                     world.car.borrow().speed);
+        }
     }
 }

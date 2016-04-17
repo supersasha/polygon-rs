@@ -69,7 +69,7 @@ impl Mul<Pt> for Mtx2 {
 }
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Sect {
     pub p0: Pt,
     pub p1: Pt,
@@ -91,7 +91,7 @@ impl Sect {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Isx {
     pub point: Pt,
     pub dist: f64,
@@ -106,6 +106,7 @@ impl Isx {
     }
 }
 
+#[derive(Debug)]
 pub struct Figure {
     pub sects: Vec<Sect>,
 }
@@ -176,6 +177,7 @@ pub fn figures_intersect(subjs: &[Sect], objs: &[Sect]) -> bool {
         for o in objs {
             let isx = sections_intersect(s, o, false);
             if isx.dist >= 0.0 {
+                //println!("isx: s={:?}, o={:?}, isx={:?}", s, o, isx);
                 return true
             }
         }
