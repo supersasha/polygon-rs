@@ -10,8 +10,8 @@ pub struct Car {
     width: f64,
     pub wheels_angle: f64,
     pub speed: f64,
-    rays: Vec<Sect>,
-    path: Figure,
+    pub rays: Vec<Sect>,
+    pub path: Figure,
     walls: Rc<Figure>,
     pub isxs: Vec<Isx>,
 }
@@ -91,8 +91,8 @@ impl Car {
         self.recalc_path();
         //println!("path={:?}", self.path);
         let intscts = geom::figures_intersect(
-            self.path.sects.as_ref(),
-            self.walls.sects.as_ref());
+            &self.path,
+            &self.walls);
         //println!("intscts={}", intscts);
         if intscts {
             self.center = center;
@@ -104,7 +104,7 @@ impl Car {
             self.recalc_path(); // !!!???
         } else {
             self.recalc_rays();
-            geom::rays_figure_intersections(&self.rays, &self.walls.sects,
+            geom::rays_figure_intersections(&self.rays, &self.walls,
                                            -1.0, self.isxs.as_mut())            
         }
     }

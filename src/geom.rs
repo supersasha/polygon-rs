@@ -106,35 +106,60 @@ impl Isx {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Path {
+    pub sects: Vec<Sect>,
+}
+
+impl Path {
+    pub fn void() -> Path {
+        Path {
+            sects: Vec::new()
+        }
+    }
+
+    pub fn from_sects(sects: &Vec<Sect>) -> Path {
+        Path {
+            sects: sects.clone()
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Figure {
-    pub sects: Vec<Sect>,
+    pub paths: Vec<Path>,
 }
 
 impl Figure {
     pub fn void() -> Figure {
         Figure {
-            sects: Vec::new()
+            paths: Vec::new()
         }
     }
 
     pub fn closed_path(points: &[Pt]) -> Figure {
         let n = points.len();
-        let mut sects = Vec::<Sect>::with_capacity(n);
+        let mut path = Path::void();
         for i in 0..n-1 {
             let s = Sect::new(points[i], points[i+1]);
-            sects.push(s);
+            path.sects.push(s);
         }
-        sects.push(Sect::new(points[n-1], points[0]));
+        path.sects.push(Sect::new(points[n-1], points[0]));
+        let mut paths: Vec<Path> = Vec::new();
+        paths.push(path);
         Figure {
-            sects: sects
+            paths: paths
         }
     }
 
     pub fn compound(figs: &[Figure]) -> Figure {
-        let sects = figs.iter().fold(Vec::new(), |mut acc, ref f| {acc.extend(&f.sects); acc});
+        //let paths = figs.iter().fold(Vec::new(), |mut acc, ref f| {acc.push(f.paths[0]); acc});
+        let mut paths: Vec<Path> = Vec::new();
+        for f in figs {
+            paths.extend_from_slice(f.paths.as_ref());
+        }
         Figure {
-            sects: sects
+            paths: paths
         }
     }
 }
@@ -172,13 +197,17 @@ fn sections_intersect(subj: &Sect, obj: &Sect, is_ray: bool) -> Isx {
     isx
 }
 
-pub fn figures_intersect(subjs: &[Sect], objs: &[Sect]) -> bool {
-    for s in subjs {
-        for o in objs {
-            let isx = sections_intersect(s, o, false);
-            if isx.dist >= 0.0 {
-                //println!("isx: s={:?}, o={:?}, isx={:?}", s, o, isx);
-                return true
+pub fn figures_intersect(subjs: &Figure, objs: &Figure) -> bool {
+    for p1 in subjs.paths.iter() {
+        for s in p1.sects.iter() {
+            for p2 in objs.paths.iter() {
+                for o in p2.sects.iter() {
+                    let isx = sections_intersect(s, o, false);
+                    if isx.dist >= 0.0 {
+                        //println!("isx: s={:?}, o={:?}, isx={:?}", s, o, isx);
+                        return true
+                    }
+                }
             }
         }
     }
@@ -186,16 +215,18 @@ pub fn figures_intersect(subjs: &[Sect], objs: &[Sect]) -> bool {
 }
 
 pub fn rays_figure_intersections(rays: &[Sect],
-                             figure: &[Sect],
+                             figure: &Figure,
                              infinity: f64,
                              intersections: &mut[Isx]) {
 
     for (i, r) in rays.iter().enumerate() {
         let mut min_isx = Isx{point: Pt{x: 0.0, y: 0.0}, dist: 1.0e20};
-        for p in figure {
-            let isx = sections_intersect(r, p, true);
-            if isx.dist >= 0.0 && isx.dist < min_isx.dist {
-                min_isx = isx;
+        for p in figure.paths.iter() {
+            for s in p.sects.iter() {
+                let isx = sections_intersect(r, s, true);
+                if isx.dist >= 0.0 && isx.dist < min_isx.dist {
+                    min_isx = isx;
+                }
             }
         }
         if min_isx.dist < 0.0 {
