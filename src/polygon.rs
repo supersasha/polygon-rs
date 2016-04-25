@@ -43,7 +43,7 @@ pub struct World {
     pub walls: Rc<Figure>,
     pub state: Vec<f64>,
     //pub prev_state: Vec<f64>,
-    last_action: Vec<f64>,
+    pub last_action: Vec<f64>
 }
 
 impl World {
@@ -99,6 +99,7 @@ pub struct Polygon {
     pub world: Rc<RefCell<World>>,
     pub car: Rc<RefCell<Car>>,
     pub walls: Rc<Figure>,
+    pub last_reward: f64,
     learner: Rc<RefCell<Cacla>>,
     minmax: MinMax,
     reward_range: Range,
@@ -123,7 +124,7 @@ impl Polygon {
         let minmax = MinMax::new(&state_ranges);
         let learner = Rc::new(RefCell::new(Cacla::new(&state_ranges,
                             action_dim as u32,
-                            100,   // hidden
+                            200,   // hidden
                             0.99,  // gamma
                             0.01,  // alpha
                             0.001, // beta
@@ -135,18 +136,20 @@ impl Polygon {
             walls: walls.clone(),
             learner: learner.clone(),
             minmax: minmax,
-            reward_range: Range::new(-4.0, 1.0)
+            reward_range: Range::new(-4.0, 1.0),
+            last_reward: 0.0
         }        
     }
     
     pub fn run(&mut self, ncycles: u32) {
         let mut s = self.world.borrow().state.clone();
         let mut new_s = self.world.borrow().state.clone();
-        for i in 0..ncycles {
+        for _ in 0..ncycles {
             self.minmax.norm(self.world.borrow().state.as_ref(), s.as_mut());
             let a = self.learner.borrow().get_action(self.world.borrow().state.as_ref());
             self.world.borrow_mut().act(a.borrow().as_ref());
             let r = self.world.borrow().reward();
+            self.last_reward = r;
             self.minmax.norm(self.world.borrow().state.as_ref(), new_s.as_mut());
             self.learner.borrow_mut().step(s.as_ref(),
                                     new_s.as_ref(),

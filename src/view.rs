@@ -1,6 +1,6 @@
-use sfml::graphics::{Color, CustomShape, RenderTarget, RenderWindow, ShapeImpl, Transformable};
+use sfml::graphics::{Color, RenderTarget, RenderWindow, ShapeImpl, Text, Transformable, Font};
 use sfml::window::{Key, VideoMode, event, window_style, ContextSettings};
-use sfml::system::{Vector2f, Vector2u};
+use sfml::system::{Vector2f};
 use std::thread::sleep;
 use std::time::Duration;
 use geom::{Figure, Path};
@@ -58,8 +58,8 @@ impl<T> Rect<T> {
 
 #[derive(Clone, Copy, Debug)]
 pub struct View {
-    scale: Vector2f,
-    pos: Vector2f,
+    pub scale: Vector2f,
+    pub pos: Vector2f,
 }
 
 impl View {
@@ -94,8 +94,8 @@ impl View {
 pub fn run() {
     let mut settings = ContextSettings::default();
     settings.0.antialiasing_level=16;//(16);
-    let mut window = RenderWindow::new(VideoMode::new_init(1600, 1200, 32),
-                                       "Custom shape",
+    let mut window = RenderWindow::new(VideoMode::new_init(1920, 1080, 32),
+                                       "Polygon",
                                        window_style::CLOSE,
                                        //&Default::default())
                                        &settings)
@@ -105,7 +105,7 @@ pub fn run() {
 
     let ws = window.get_size();
     println!("Window size: {:?}", ws);
-    let view = View::new(Rect::new(0.0, 0.0, ws.y as f32, ws.y as f32),
+    let mut view = View::new(Rect::new(0.0, 0.0, ws.y as f32, ws.y as f32),
                          Rect::new(-120.0, 120.0, 120.0, -120.0));
     
     /*
@@ -139,14 +139,36 @@ pub fn run() {
     let loop_cycles = 1000;
     let mut all_cycles = 0;
     
+    let font = Font::new_from_file("/Users/aovchinn/Downloads/SourceCodePro_FontsOnly-1.017/TTF/SourceCodePro-Regular.ttf").unwrap();
+    
     loop {
         pg.run(loop_cycles);
         all_cycles += loop_cycles;
-        println!("{}", all_cycles); 
+        //println!("{}", all_cycles); 
         for event in window.events() {
             match event {
                 event::Closed => return,
                 event::KeyPressed { code: Key::Escape, .. } => return,
+                event::KeyPressed { code: Key::A, ..} => { 
+                    view.scale.x *= 2.0;
+                    view.scale.y *= 2.0;
+                },
+                event::KeyPressed { code: Key::Z, ..} => { 
+                    view.scale.x /= 2.0;
+                    view.scale.y /= 2.0; 
+                },
+                event::KeyPressed { code: Key::Left, ..} => { 
+                    view.pos.x += 50.0;
+                },
+                event::KeyPressed { code: Key::Right, ..} => { 
+                    view.pos.x -= 50.0;
+                },
+                event::KeyPressed { code: Key::Up, ..} => { 
+                    view.pos.y += 50.0;
+                },
+                event::KeyPressed { code: Key::Down, ..} => { 
+                    view.pos.y -= 50.0;
+                },
                 _ => {}
             }
         }
@@ -160,7 +182,22 @@ pub fn run() {
         let car = pg.car.borrow();
         let ps_car = car.get_polyshape(view);
         window.draw(&ps_car);
+        
+        let text = format!("Cycles: {}\nSpeed:  {}\nWheels: {}\nAct[0]: {}\n\
+                            Act[1]: {}\nReward: {}\nX: {}\nY: {}",
+                    all_cycles, car.speed, car.wheels_angle,
+                    world.last_action[0], world.last_action[1],
+                    pg.last_reward, car.center.x, car.center.y);
+        
+        let mut txt = Text::new().unwrap();
+        txt.set_font(&font);
+        txt.set_character_size(24);
+        txt.set_string(&text);
+        txt.set_position2f(1200.0, 30.0);
+        txt.set_color(&Color::black());
+        window.draw(&txt);
+        
         window.display();
-        sleep(Duration::from_millis(1));
+        //sleep(Duration::from_millis(1));
     }
 }

@@ -24,7 +24,7 @@ impl<'s> Polyshape<'s> {
 
         cs.set_fill_color(&Color::transparent());
         cs.set_outline_color(&Color::black());
-        cs.set_outline_thickness(0.1);
+        cs.set_outline_thickness(0.2);
         self.shapes.push(cs);
     }
 }
