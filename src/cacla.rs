@@ -34,7 +34,7 @@ struct Approx {
 }
 
 impl Approx {
-    fn new(ranges: &Vec<Range>, hidden: u32, output: u32) -> Approx {
+    fn new(ranges: &Vec<Range>, hidden: u32, output: u32, learning_rate: f64) -> Approx {
         //let mut rs = Vec::with_capacity();
         //rs.clone_from_slice(ranges);
         let rs = ranges.to_vec();
@@ -43,7 +43,7 @@ impl Approx {
         net.set_activation_func_hidden(ActivationFunc::SigmoidSymmetric);
         net.set_activation_func_output(ActivationFunc::Linear);
         let train_params = IncrementalParams{learning_momentum: 0.0,
-                                             learning_rate: 0.01};
+                                             learning_rate: learning_rate as f32};
         net.set_train_algorithm(TrainAlgorithm::Incremental(train_params));
         Approx {
             ranges: rs,
@@ -69,6 +69,10 @@ impl Approx {
     fn load(&mut self, filename: &str) {
         // TODO: save and load other settings
         self.net = Fann::from_file(filename).unwrap()
+    }
+    
+    fn print(&self) {
+        self.net.print_connections();
     }
 }
 
@@ -104,17 +108,21 @@ impl Cacla {
             dim_states: state_ranges.len() as u32,
             dim_actions: dim_actions,
             action: Rc::new(RefCell::new(action)),
-            V: Approx::new(state_ranges, hidden, 1),
-            Ac: Approx::new(state_ranges, hidden, dim_actions),
+            V: Approx::new(state_ranges, hidden, 1, alpha),
+            Ac: Approx::new(state_ranges, hidden, dim_actions, alpha)
         }
     }
 
-    pub fn get_action(&self, state: &[FannType]) -> Rc<RefCell<Vec<f64>>> {
+    pub fn get_action(&self, state: &[FannType], wander_more: bool) -> Rc<RefCell<Vec<f64>>> {
         let mu = self.Ac.call(state);
         let mut rng = rand::thread_rng();
         let mut action = self.action.borrow_mut();
+        let mut sigma = self.sigma;
+        if wander_more {
+            sigma = 1.0
+        } 
         for i in 0..mu.len() {
-            let normal = Normal::new(mu[i], self.sigma);
+            let normal = Normal::new(mu[i], sigma);
             action[i] = normal.ind_sample(&mut rng);
         }
         self.action.clone()
@@ -139,7 +147,7 @@ impl Cacla {
             }
         }
     }
-
+    
     pub fn save(&self, path: &str) {
         self.V.save(&(path.to_string() + "/V.net"));
         self.Ac.save(&(path.to_string() + "/Ac.net"));
@@ -149,5 +157,12 @@ impl Cacla {
         // TODO: save and load other settings
         self.V.load(&(path.to_string() + "/V.net"));
         self.Ac.load(&(path.to_string() + "/Ac.net"));
+    }
+    
+    pub fn print(&self) {
+        println!("CONNECTIONS [V]:  ------------------------------");
+        self.V.print();
+        println!("CONNECTIONS [Ac]: ------------------------------");
+        self.Ac.print();
     }
 }

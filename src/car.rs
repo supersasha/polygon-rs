@@ -45,6 +45,8 @@ impl Car {
     pub fn set_pos(&mut self, center: Pt, course: Pt) {
         self.center = center;
         self.course = course;
+        self.recalc_rays();
+        self.recalc_path();
     }
     
     pub fn action_penalty(&self, action: &[f64]) -> f64 {

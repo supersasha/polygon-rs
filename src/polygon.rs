@@ -100,9 +100,12 @@ pub struct Polygon {
     pub car: Rc<RefCell<Car>>,
     pub walls: Rc<Figure>,
     pub last_reward: f64,
-    learner: Rc<RefCell<Cacla>>,
+    pub learner: Rc<RefCell<Cacla>>,
     minmax: MinMax,
     reward_range: Range,
+    stopped_cycles: u32,
+    wander_cycles: u32,
+    epoch: u32,
 }
 
 impl Polygon {
@@ -124,9 +127,9 @@ impl Polygon {
         let minmax = MinMax::new(&state_ranges);
         let learner = Rc::new(RefCell::new(Cacla::new(&state_ranges,
                             action_dim as u32,
-                            200,   // hidden
+                            100,   // hidden
                             0.99,  // gamma
-                            0.01,  // alpha
+                            0.005,  // alpha !!!
                             0.001, // beta
                             0.1)));  // sigma
                         
@@ -137,7 +140,10 @@ impl Polygon {
             learner: learner.clone(),
             minmax: minmax,
             reward_range: Range::new(-4.0, 1.0),
-            last_reward: 0.0
+            last_reward: 0.0,
+            stopped_cycles: 0,
+            wander_cycles: 0,
+            epoch: 1000000
         }        
     }
     
@@ -145,11 +151,41 @@ impl Polygon {
         let mut s = self.world.borrow().state.clone();
         let mut new_s = self.world.borrow().state.clone();
         for _ in 0..ncycles {
+            //self.epoch -= 1;
+            //if self.epoch == 0 {
+            //    self.epoch = 1000000;
+            //    self.car.borrow_mut().set_pos(Pt::new(-110.0, 0.0), Pt::new(0.0, 1.0));
+            //}
+            
+            // Wandering
+            let mut wander = false;
+            if self.wander_cycles > 0 {
+                self.wander_cycles -= 1;
+                if self.wander_cycles == 0 {
+                    println!("Wander OFF");
+                }
+                wander = true;
+            } else {
+                if self.car.borrow().speed.abs() < 0.000001 {
+                    self.stopped_cycles += 1;
+                    if self.stopped_cycles > 100000 {
+                        self.wander_cycles = 1000;
+                        println!("Wander ON");
+                        self.stopped_cycles = 0;
+                    }
+                } else {
+                    self.stopped_cycles = 0;
+                }
+            }
+            
             self.minmax.norm(self.world.borrow().state.as_ref(), s.as_mut());
-            let a = self.learner.borrow().get_action(self.world.borrow().state.as_ref());
+            let a = self.learner.borrow().get_action(
+                self.world.borrow().state.as_ref(), wander);
             self.world.borrow_mut().act(a.borrow().as_ref());
             let r = self.world.borrow().reward();
             self.last_reward = r;
+
+
             self.minmax.norm(self.world.borrow().state.as_ref(), new_s.as_mut());
             self.learner.borrow_mut().step(s.as_ref(),
                                     new_s.as_ref(),

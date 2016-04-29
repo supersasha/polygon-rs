@@ -141,9 +141,15 @@ pub fn run() {
     
     let font = Font::new_from_file("/Users/aovchinn/Downloads/SourceCodePro_FontsOnly-1.017/TTF/SourceCodePro-Regular.ttf").unwrap();
     
+    let mut pause = false;
+    
     loop {
-        pg.run(loop_cycles);
-        all_cycles += loop_cycles;
+        if pause {
+            sleep(Duration::from_millis(100));
+        } else {
+            pg.run(loop_cycles);
+            all_cycles += loop_cycles;
+        }
         //println!("{}", all_cycles); 
         for event in window.events() {
             match event {
@@ -169,6 +175,12 @@ pub fn run() {
                 event::KeyPressed { code: Key::Down, ..} => { 
                     view.pos.y -= 50.0;
                 },
+                event::KeyPressed { code: Key::P, ..} => { 
+                    pg.learner.borrow().print();
+                },
+                event::KeyPressed { code: Key::Space, ..} => { 
+                    pause = !pause;
+                },                
                 _ => {}
             }
         }
