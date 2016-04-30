@@ -1,6 +1,6 @@
 use sfml::graphics::{Color, RenderTarget, RenderWindow, ShapeImpl, Text, Transformable, Font};
 use sfml::window::{Key, VideoMode, event, window_style, ContextSettings};
-use sfml::system::{Vector2f};
+use sfml::system::{Vector2f, Vector2i};
 use std::thread::sleep;
 use std::time::Duration;
 use geom::{Figure, Path};
@@ -94,12 +94,13 @@ impl View {
 pub fn run() {
     let mut settings = ContextSettings::default();
     settings.0.antialiasing_level=16;//(16);
-    let mut window = RenderWindow::new(VideoMode::new_init(1920, 1080, 32),
+    let mut window = RenderWindow::new(VideoMode::new_init(1920, 970, 32),
                                        "Polygon",
                                        window_style::CLOSE,
                                        //&Default::default())
                                        &settings)
                          .unwrap();
+    window.set_position(&Vector2i::new(0, 0));
     window.set_vertical_sync_enabled(true);
     //window.set_size(&Vector2u::new(400, 300));
 
@@ -107,39 +108,14 @@ pub fn run() {
     println!("Window size: {:?}", ws);
     let mut view = View::new(Rect::new(0.0, 0.0, ws.y as f32, ws.y as f32),
                          Rect::new(-120.0, 120.0, 120.0, -120.0));
-    
-    /*
-    let ws = window.get_size();
-    println!("Window size: {:?}", ws);
-    let view = View::new(Rect::new(0.0, 0.0, ws.y as f32, ws.y as f32),
-                         Rect::new(-120.0, 120.0, 120.0, -120.0));
-    println!("View: {:?}", view);
-    let clover = track::clover(2.0, 10.0);
-    let mut shape1 = CustomShape::new(Box::new(clover.paths[0].clone())).unwrap();
-    let mut shape2 = CustomShape::new(Box::new(clover.paths[1].clone())).unwrap();
-    //shape1.set_position(&Vector2f{x: 800.0, y: 600.0});
-    //shape1.set_scale2f(5.0, -5.0);
-    shape1.set_position(&view.pos());
-    shape1.set_scale(&view.scale());
-    shape1.set_fill_color(&Color::transparent());
-    shape1.set_outline_color(&Color::red());
-    shape1.set_outline_thickness(0.5);
-
-    //shape2.set_position(&Vector2f{x: 800.0, y: 600.0});
-    //shape2.set_scale2f(5.0, 5.0);
-    shape2.set_position(&view.pos());
-    shape2.set_scale(&view.scale());
-    shape2.set_fill_color(&Color::transparent());
-    shape2.set_outline_color(&Color::green());
-    shape2.set_outline_thickness(0.5);
-    */
-    
+        
     let mut pg = Polygon::new();
     
     let loop_cycles = 1000;
     let mut all_cycles = 0;
-    
-    let font = Font::new_from_file("/Users/aovchinn/Downloads/SourceCodePro_FontsOnly-1.017/TTF/SourceCodePro-Regular.ttf").unwrap();
+    let font_filename = "C:\\Users\\super\\.cargo\\registry\\src\\github.com-88ac128001ac3a9a\\sfml-0.11.2\\examples\\resources\\sansation.ttf";
+    //let font_filename = "/Users/aovchinn/Downloads/SourceCodePro_FontsOnly-1.017/TTF/SourceCodePro-Regular.ttf";    
+    let font = Font::new_from_file(font_filename).unwrap();
     
     let mut pause = false;
     
@@ -150,7 +126,6 @@ pub fn run() {
             pg.run(loop_cycles);
             all_cycles += loop_cycles;
         }
-        //println!("{}", all_cycles); 
         for event in window.events() {
             match event {
                 event::Closed => return,
