@@ -5,6 +5,7 @@ use geom::{Figure, Pt};
 use track::{clover};
 use cacla::{Cacla, Range};
 use std::f64::consts::PI;
+use std::path;
 
 const TRANGE: Range = Range{lo: -1.0, hi: 1.0};
 
@@ -106,10 +107,11 @@ pub struct Polygon {
     stopped_cycles: u32,
     wander_cycles: u32,
     epoch: u32,
+    ws_dir: path::PathBuf
 }
 
 impl Polygon {
-    pub fn new() -> Polygon {
+    pub fn new(ws_dir: path::PathBuf) -> Polygon {
         let nrays = 36;
         let walls = Rc::new(clover(2.0, 10.0));
         let action_dim = 2;
@@ -129,7 +131,7 @@ impl Polygon {
                             action_dim as u32,
                             100,   // hidden
                             0.99,  // gamma
-                            0.005,  // alpha !!!
+                            0.005, // alpha
                             0.001, // beta
                             0.1)));  // sigma
                         
@@ -143,8 +145,17 @@ impl Polygon {
             last_reward: 0.0,
             stopped_cycles: 0,
             wander_cycles: 0,
-            epoch: 1000000
+            epoch: 1000000,
+            ws_dir: ws_dir
         }        
+    }
+    
+    pub fn save(&self) {
+        self.learner.borrow().save(&self.ws_dir);
+    }
+    
+    pub fn load(&mut self) {
+        self.learner.borrow_mut().load(&self.ws_dir);
     }
     
     pub fn run(&mut self, ncycles: u32) {
@@ -212,61 +223,3 @@ impl Polygon {
         state_ranges        
     }
 }
-
-// TODO: remove when sure all works
-/*
-pub fn run(ncycles: usize) {
-    let walls = Rc::new(clover(2.0, 10.0));
-    //println!("Walls: {:?}", walls);
-    let nrays = 36;
-    let action_dim = 2;
-    let state_dim = nrays + 2;
-    let car = Rc::new(RefCell::new(Car::new(Pt::new(-110.0, 0.0),
-                                    Pt::new(0.0, 1.0),
-                                    3.0, // length
-                                    1.6, // width
-                                    nrays,
-                                    walls.clone())));
-
-    let mut world = World::new(car, walls.clone(), state_dim, action_dim);
-
-    let mut state_ranges = Vec::new();
-    state_ranges.resize(state_dim, Range::zero());
-    for i in 0..36 {
-        state_ranges[i] = Range::new(0.0, 100.0);
-    }
-    state_ranges[36] = Range::new(-1.0, 1.0);
-    state_ranges[37] = Range::new(-PI/4.0, PI/4.0);
-
-    let minmax = MinMax::new(&state_ranges);
-    let learner = RefCell::new(Cacla::new(&state_ranges,
-                                action_dim as u32,
-                                100,   // hidden
-                                0.99,  // gamma
-                                0.01,  // alpha
-                                0.001, // beta
-                                0.1));  // sigma
-    
-    let mut s = world.state.clone();
-    let mut new_s = world.state.clone();
-    let reward_range = Range::new(-4.0, 1.0);
-    for i in 0..ncycles {
-        minmax.norm(world.state.as_ref(), s.as_mut());
-        let a = learner.borrow().get_action(world.state.as_ref());
-        world.act(a.borrow().as_ref());
-        let r = world.reward();
-        minmax.norm(world.state.as_ref(), new_s.as_mut());
-        learner.borrow_mut().step(s.as_ref(),
-                                  new_s.as_ref(),
-                                  a.borrow().as_ref(),
-                                  normalize(&reward_range, r, &TRANGE));
-        if i % 10000 == 0 {
-            println!("{:?} {:?} {:?} {:?}",
-                     i,
-                     a.borrow(),
-                     world.car.borrow().center,
-                     world.car.borrow().speed);
-        }
-    }
-}
-*/

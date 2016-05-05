@@ -1,8 +1,13 @@
+//#![feature(custom_derive, plugin)]
 use fann::{Fann, FannType, ActivationFunc, TrainAlgorithm, IncrementalParams};
 use rand::distributions::{Normal, IndependentSample};
 use std::rc::Rc;
 use std::cell::RefCell;
 use rand;
+use rustc_serialize::json;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path;
 
 #[derive(Clone)]
 pub struct Range {
@@ -62,11 +67,11 @@ impl Approx {
         self.net.train(x, target);
     }
     
-    fn save(&self, filename: &str) {
+    fn save(&self, filename: &path::PathBuf) {
         self.net.save(filename);
     }
 
-    fn load(&mut self, filename: &str) {
+    fn load(&mut self, filename: &path::PathBuf) {
         // TODO: save and load other settings
         self.net = Fann::from_file(filename).unwrap()
     }
@@ -76,18 +81,20 @@ impl Approx {
     }
 }
 
-pub struct Cacla {
-    V: Approx,
-    Ac: Approx,
-    dim_states: u32,
-    dim_actions: u32,
-    action: Rc<RefCell<Vec<f64>>>,
-    
+#[derive(RustcEncodable, RustcDecodable)]
+struct CaclaState {
+    action: Rc<RefCell<Vec<f64>>>,    
     alpha: f64,
     beta: f64,
     gamma: f64,
     sigma: f64,
     var: f64,
+}
+
+pub struct Cacla {
+    V: Approx,
+    Ac: Approx,
+    state: CaclaState,
 }
 
 impl Cacla {
@@ -100,14 +107,14 @@ impl Cacla {
         let mut action = Vec::with_capacity(dim_actions as usize);
         action.resize(dim_actions as usize, 0.0);
         Cacla {
-            alpha: alpha,
-            beta: beta,
-            gamma: gamma,
-            sigma: sigma,
-            var: 1.0,
-            dim_states: state_ranges.len() as u32,
-            dim_actions: dim_actions,
-            action: Rc::new(RefCell::new(action)),
+            state: CaclaState {
+                alpha: alpha,
+                beta: beta,
+                gamma: gamma,
+                sigma: sigma,
+                var: 1.0,
+                action: Rc::new(RefCell::new(action))
+            },
             V: Approx::new(state_ranges, hidden, 1, alpha),
             Ac: Approx::new(state_ranges, hidden, dim_actions, alpha)
         }
@@ -116,8 +123,8 @@ impl Cacla {
     pub fn get_action(&self, state: &[FannType], wander_more: bool) -> Rc<RefCell<Vec<f64>>> {
         let mu = self.Ac.call(state);
         let mut rng = rand::thread_rng();
-        let mut action = self.action.borrow_mut();
-        let mut sigma = self.sigma;
+        let mut action = self.state.action.borrow_mut();
+        let mut sigma = self.state.sigma;
         if wander_more {
             sigma = 1.0
         } 
@@ -125,19 +132,20 @@ impl Cacla {
             let normal = Normal::new(mu[i], sigma);
             action[i] = normal.ind_sample(&mut rng);
         }
-        self.action.clone()
+        self.state.action.clone()
     }
 
     pub fn step(&mut self, old_state: &[FannType], new_state: &[FannType],
             action: &[FannType], reward: f64) {
         let old_state_v = self.V.call(old_state);
         let new_state_v = self.V.call(new_state);
-        let target = &[reward + self.gamma * new_state_v[0]];
+        let target = &[reward + self.state.gamma * new_state_v[0]];
         let td_error = target[0] - old_state_v[0];
         self.V.update(target, old_state);
         if td_error > 0.0 {
-            self.var = (1.0 - self.beta) * self.var + self.beta * td_error * td_error;
-            let n = (td_error / self.var.sqrt()).ceil() as usize;
+            self.state.var = (1.0 - self.state.beta) * self.state.var
+                            + self.state.beta * td_error * td_error;
+            let n = (td_error / self.state.var.sqrt()).ceil() as usize;
             // TODO: print n if n > 5
             if n > 5 {
                 println!("n = {}", n);
@@ -148,18 +156,24 @@ impl Cacla {
         }
     }
     
-    pub fn save(&self, path: &str) {
-        self.V.save(&(path.to_string() + "/V.net"));
-        self.Ac.save(&(path.to_string() + "/Ac.net"));
+    pub fn save(&self, dir: &path::PathBuf) {
+        let mut f = File::create(&dir.join("/cacla.state")).unwrap();
+        write!(f, "{}", json::encode(&self.state).unwrap());
+        self.V.save(&dir.join("/V.net"));
+        self.Ac.save(&dir.join("/Ac.net"));
     }
 
-    pub fn load(&mut self, path: &str) {
-        // TODO: save and load other settings
-        self.V.load(&(path.to_string() + "/V.net"));
-        self.Ac.load(&(path.to_string() + "/Ac.net"));
+    pub fn load(&mut self, dir: &path::PathBuf) {
+        let mut f = File::open(&dir.join("/cacla.state")).unwrap();
+        let mut js = String::new();
+        f.read_to_string(&mut js);
+        self.state = json::decode(&js).unwrap();
+        self.V.load(&dir.join("/V.net"));
+        self.Ac.load(&dir.join("/Ac.net"));
     }
     
     pub fn print(&self) {
+        println!("Cacla state: {}", json::encode(&self.state).unwrap());
         println!("CONNECTIONS [V]:  ------------------------------");
         self.V.print();
         println!("CONNECTIONS [Ac]: ------------------------------");

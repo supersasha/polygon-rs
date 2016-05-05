@@ -7,6 +7,8 @@ use geom::{Figure, Path};
 use track;
 use polygon::Polygon;
 use polyshape::{Polyshape, Polyshapable};
+use std::fs;
+use std::path;
 
 #[derive(Clone, Copy)]
 pub struct TriangleShape;
@@ -91,9 +93,16 @@ impl View {
 //    pub shapes: Vec<CustomShape>
 //}
 
-pub fn run() {
+fn dir_of_workspace(workspace: &str) -> path::PathBuf {
+    let dir = path::Path::new("./workspaces/").join(workspace);
+    fs::create_dir_all(dir.as_path());
+    dir
+}
+
+pub fn run(workspace: &str) {
+    let ws_dir = dir_of_workspace(workspace);
     let mut settings = ContextSettings::default();
-    settings.0.antialiasing_level=16;//(16);
+    settings.0.antialiasing_level = 16;
     let mut window = RenderWindow::new(VideoMode::new_init(1920, 970, 32),
                                        "Polygon",
                                        window_style::CLOSE,
@@ -109,7 +118,7 @@ pub fn run() {
     let mut view = View::new(Rect::new(0.0, 0.0, ws.y as f32, ws.y as f32),
                          Rect::new(-120.0, 120.0, 120.0, -120.0));
         
-    let mut pg = Polygon::new();
+    let mut pg = Polygon::new(ws_dir.clone());
     
     let loop_cycles = 1000;
     let mut all_cycles = 0;
@@ -126,6 +135,9 @@ pub fn run() {
             pg.run(loop_cycles);
             all_cycles += loop_cycles;
         }
+        //if all_cycles % (100 * loop_cycles) == 0 {
+        //    pg.save(ws_dir);
+        //}
         for event in window.events() {
             match event {
                 event::Closed => return,

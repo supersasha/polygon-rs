@@ -11,4 +11,4 @@ fann = "*"
 libc = "*"
 rand = "0.3"
 sfml = "0.11.2"
-
+rustc-serialize = "*"

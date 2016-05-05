@@ -1,6 +1,7 @@
 extern crate fann;
 extern crate rand;
 extern crate sfml;
+extern crate rustc_serialize;
 
 mod cacla;
 mod geom;
