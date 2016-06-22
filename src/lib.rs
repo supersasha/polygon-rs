@@ -8,6 +8,7 @@ mod geom;
 mod car;
 mod track;
 mod polyshape;
+mod plot;
 pub mod polygon;
 pub mod view;
 

@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use car::Car;
 use geom::{Figure, Pt};
-use track::{clover};
+use track::{clover, Way, WayPoint, clover_data};
 use cacla::{Cacla, Range};
 use std::f64::consts::PI;
 use std::path;
@@ -24,6 +24,7 @@ impl MinMax {
         for i in 0..n {
             out[i] = normalize(&self.ranges[i], inp[i], &TRANGE);
         }
+        //println!("rng={:?}", self.ranges);
     }
     /*
     fn denorm(&self, inp: &[f64], out: &mut [f64]) {
@@ -42,6 +43,9 @@ fn normalize(from: &Range, x: f64, to: &Range) -> f64 {
 pub struct World {
     pub car: Rc<RefCell<Car>>,
     pub walls: Rc<Figure>,
+    pub way: Rc<Way>,
+    pub way_point: WayPoint,
+    pub old_way_point: WayPoint,
     pub state: Vec<f64>,
     //pub prev_state: Vec<f64>,
     pub last_action: Vec<f64>
@@ -49,14 +53,18 @@ pub struct World {
 
 impl World {
     pub fn new(car: Rc<RefCell<Car>>, walls: Rc<Figure>,
+           way: Rc<Way>,
            state_dim: usize, action_dim: usize) -> World {
         let mut state = Vec::with_capacity(state_dim);
         state.resize(state_dim, 0.0);
         let mut last_action = Vec::with_capacity(action_dim);
         last_action.resize(action_dim, 0.0);
         World {
-            car: car,
+            car: car.clone(),
             walls: walls,
+            way: way.clone(),
+            way_point: way.where_is(car.borrow().center),
+            old_way_point: WayPoint::zero(),
             state: state,
             //prev_state: state.clone(),
             last_action: last_action
@@ -65,11 +73,13 @@ impl World {
     
     pub fn act(&mut self, action: &[f64]) {
         self.car.borrow_mut().act(action);
+        self.old_way_point = self.way_point;
+        self.way_point = self.way.where_is(self.car.borrow().center);
         self.recalc_state();
         self.last_action.clone_from_slice(action);
     }
 
-    pub fn reward(&self) -> f64 {
+    pub fn reward_old_2(&self) -> f64 {
         let mut hp: f64 = 0.0;
         if self.car.borrow().speed.abs() < 0.001 {
             hp = 1.0;
@@ -85,14 +95,85 @@ impl World {
         }
     }
     
+    pub fn reward_old(&self) -> f64 {
+        /*
+        let mut hit_penalty = 0.0;
+        if self.car.borrow().speed.abs() < 0.0000001 {
+            hit_penalty = 0.1;
+        }
+        
+        TODO: New continuous hit penalty 
+        */
+        let mut min_dist = 1.0e20;
+        for i in 0..self.state.len() - 2 {
+            if (self.state[i] >= 0.0) && (self.state[i] < min_dist) {
+                min_dist = self.state[i];
+            }
+        }
+        
+        //let hit_penalty = if min_dist < 1.0 { 1.0 - min_dist } else { 0.0 };
+        
+        let sigma = 2.0 / 3.0;
+        let hit_penalty = (-min_dist*min_dist / (2.0 * sigma * sigma)).exp();
+        
+        let ap = self.car.borrow().wheels_angle.abs(); // 0.0..2.0
+        let cap = self.car.borrow().action_penalty(&self.last_action); // 0.0..2.0
+        let cap2 = self.car.borrow().action_penalty2(&self.last_action); // 0.0..1.0
+        //let penalty = hit_penalty + cap + ap;
+
+        let penalty = 1.0 * (1.0 * hit_penalty + 1.0 * cap + 1.0 * ap + 2.0 * cap2);        
+        //let reward = self.way.offset(&self.old_way_point, &self.way_point); // -1.0..1.0
+        //5.0 * reward - penalty
+                
+        let speed = self.car.borrow().speed;
+        if speed > 0.0 {
+            speed - penalty
+        } else {
+            -0.5 * speed - penalty
+        }
+        
+    }
+    
+    pub fn reward(&self) -> f64 {
+        let speed = self.car.borrow().speed;
+        let mut dist_reward = 0.0;
+        let speed_reward = 1.0 - (speed - 1.0) * (speed - 1.0);
+
+        for i in 0..self.nrays() {
+            let s = self.state[i];
+            dist_reward = min(s * (1.0 - 0.0099 * s), dist_reward);
+        }
+
+        let wheels = self.car.borrow().wheels_angle;
+        let wheels_reward = - wheels * wheels;
+
+        let action_penalty = self.car.borrow().action_penalty3(&self.last_action);
+        let action_reward = -action_penalty * action_penalty;
+
+        speed_reward + 20.0*dist_reward + 10.0*wheels_reward + action_reward
+    } 
+
     fn recalc_state(&mut self) {
         //self.prev_state.clone_from(&self.state);
-        let n = self.car.borrow().isxs.len(); 
+        let n = self.nrays(); 
         for (i, isx) in self.car.borrow().isxs.iter().enumerate() {
-            self.state[i] = isx.dist;
+            self.state[i] = isx.dist / 3.0; // 10.0; // !!!
         }
-        self.state[n] = self.car.borrow().speed;
-        self.state[n+1] = self.car.borrow().wheels_angle;
+        self.state[n] = self.car.borrow().speed; // / 1.0; // !!!
+        self.state[n+1] = self.car.borrow().wheels_angle; // / 1.0; // !!!
+        self.state[n+2] = self.car.borrow().action_penalty3(&self.last_action);
+    }
+
+    fn nrays(&self) -> usize {
+        self.car.borrow().isxs.len()
+    }
+}
+
+fn min(a: f64, b: f64) -> f64 {
+    if a > b {
+        b
+    } else {
+        a
     }
 }
 
@@ -113,9 +194,11 @@ pub struct Polygon {
 impl Polygon {
     pub fn new(ws_dir: path::PathBuf) -> Polygon {
         let nrays = 36;
-        let walls = Rc::new(clover(2.0, 10.0));
+        let scale = 10.0;
+        let walls = Rc::new(clover(2.0, scale));
+        let way = Rc::new(Way::new(&clover_data, scale));
         let action_dim = 2;
-        let state_dim = nrays + 2;
+        let state_dim = nrays + 2 + 1;
         let car = Rc::new(RefCell::new(Car::new(Pt::new(-110.0, 0.0),
                                         Pt::new(0.0, 1.0),
                                         3.0, // length
@@ -123,7 +206,11 @@ impl Polygon {
                                         nrays,
                                         walls.clone())));
         let world = Rc::new(RefCell::new(
-                            World::new(car.clone(), walls.clone(), state_dim, action_dim
+                            World::new(car.clone(),
+                                       walls.clone(),
+                                       way.clone(),
+                                       state_dim,
+                                       action_dim
                         )));
         let state_ranges = Polygon::mk_state_ranges(state_dim);
         let minmax = MinMax::new(&state_ranges);
@@ -131,7 +218,7 @@ impl Polygon {
                             action_dim as u32,
                             100,   // hidden
                             0.99,  // gamma
-                            0.005, // alpha
+                            0.01, // alpha !!!
                             0.001, // beta
                             0.1)));  // sigma
                         
@@ -141,7 +228,7 @@ impl Polygon {
             walls: walls.clone(),
             learner: learner.clone(),
             minmax: minmax,
-            reward_range: Range::new(-4.0, 1.0),
+            reward_range: Range::new(-300.0, 40.0), //(-4.0, 1.0) - for reward_old,
             last_reward: 0.0,
             stopped_cycles: 0,
             wander_cycles: 0,
@@ -169,7 +256,9 @@ impl Polygon {
             //}
             
             // Wandering
+            
             let mut wander = false;
+            /*
             if self.wander_cycles > 0 {
                 self.wander_cycles -= 1;
                 if self.wander_cycles == 0 {
@@ -188,20 +277,23 @@ impl Polygon {
                     self.stopped_cycles = 0;
                 }
             }
+            */
             
             self.minmax.norm(self.world.borrow().state.as_ref(), s.as_mut());
             let a = self.learner.borrow().get_action(
                 self.world.borrow().state.as_ref(), wander);
             self.world.borrow_mut().act(a.borrow().as_ref());
             let r = self.world.borrow().reward();
-            self.last_reward = r;
-
 
             self.minmax.norm(self.world.borrow().state.as_ref(), new_s.as_mut());
+            //println!("st={:?}", self.world.borrow().state.as_ref() as &[f64]);
+            //println!("sn={:?}", new_s.as_ref() as &[f64]);
             self.learner.borrow_mut().step(s.as_ref(),
                                     new_s.as_ref(),
                                     a.borrow().as_ref(),
                                     normalize(&self.reward_range, r, &TRANGE));
+            self.last_reward = r;
+
             /*if i % 10000 == 0 {
                 println!("{:?} {:?} {:?} {:?}",
                         i,
@@ -212,14 +304,39 @@ impl Polygon {
         }        
     }
     
+    pub fn v_fn(&self, n: u32) -> Box<Fn(f64) -> f64> {
+        let w = self.world.clone();
+        let l = self.learner.clone();
+        let f = l.borrow().v_fn();
+        Box::new(move |x| {
+            let mut state = w.borrow().state.clone();
+            state[n as usize] = x;
+            let y = f(&state);
+            y[0]
+        })
+    }
+
+    pub fn ac_fn(&self, n: u32, m: u32) -> Box<Fn(f64) -> f64> {
+        let w = self.world.clone();
+        let l = self.learner.clone();
+        let f = l.borrow().ac_fn();
+        Box::new(move |x| {
+            let mut state = w.borrow().state.clone();
+            state[n as usize] = x;
+            let y = f(&state);
+            y[m as usize]
+        })
+    }
+
     fn mk_state_ranges(state_dim: usize) -> Vec<Range> {
         let mut state_ranges = Vec::new();
         state_ranges.resize(state_dim, Range::zero());
-        for i in 0..36 {
+        for i in 0..state_dim-2 {
             state_ranges[i] = Range::new(0.0, 100.0);
         }
-        state_ranges[36] = Range::new(-1.0, 1.0);
-        state_ranges[37] = Range::new(-PI/4.0, PI/4.0);
+        state_ranges[state_dim-3] = Range::new(-1.0, 1.0);
+        state_ranges[state_dim-2] = Range::new(-PI/4.0, PI/4.0);
+        state_ranges[state_dim-1] = Range::new(0.0, 100.0);
         state_ranges        
     }
 }

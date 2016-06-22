@@ -15,6 +15,14 @@ impl Pt {
     pub fn new(x: f64, y: f64) -> Pt {
         Pt{x: x, y: y}
     }
+    
+    pub fn from_slice(p: &[f64]) -> Pt {
+        Pt::new(p[0], p[1])
+    }
+    
+    pub fn norm(&self) -> f64 {
+        (self.x*self.x + self.y*self.y).sqrt()
+    }
 }
 
 impl Add<Pt> for Pt {
@@ -176,7 +184,7 @@ fn vdot(p0: &Pt, p1: &Pt) -> f64 {
 fn sections_intersect(subj: &Sect, obj: &Sect, is_ray: bool) -> Isx {
     let mut isx = Isx{point: Pt{x: 0.0, y: 0.0}, dist: -1.0};
     let a1 = if is_ray {
-        subj.p0
+        subj.p1
     } else {
         minus_pt(&subj.p1, &subj.p0)
     };
@@ -188,7 +196,7 @@ fn sections_intersect(subj: &Sect, obj: &Sect, is_ray: bool) -> Isx {
         let x1 = vdot(&a1, &b) / det;
         if x0 >= 0.0 && x1 >= 0.0 && x1 <= 1.0 {
             if is_ray || x0 <= 1.0 {
-                isx.dist = x0;
+                isx.dist = x0 * a1.norm();
                 isx.point.x = subj.p0.x + a1.x * x0;
                 isx.point.y = subj.p0.y + a1.y * x0;
             }
@@ -225,10 +233,12 @@ pub fn rays_figure_intersections(rays: &[Sect],
             for s in p.sects.iter() {
                 let isx = sections_intersect(r, s, true);
                 if isx.dist >= 0.0 && isx.dist < min_isx.dist {
+                    //println!("({}, {:?}, {:?}): {:?}", i, r, s, isx);
                     min_isx = isx;
                 }
             }
         }
+        //println!("== ({}, {:?}): {}", i, r, min_isx.dist);
         if min_isx.dist < 0.0 {
             intersections[i].dist = infinity;
         } else {

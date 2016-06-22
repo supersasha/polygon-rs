@@ -14,6 +14,7 @@ pub struct Car {
     pub path: Figure,
     walls: Rc<Figure>,
     pub isxs: Vec<Isx>,
+    self_isxs: Vec<Isx>,
 }
 
 impl Car {
@@ -23,6 +24,8 @@ impl Car {
         rays.resize(nrays, Sect::zero());
         let mut isxs = Vec::with_capacity(nrays);
         isxs.resize(nrays, Isx::zero());
+        let mut self_isxs = Vec::with_capacity(nrays);
+        self_isxs.resize(nrays, Isx::zero());
         let path = Figure::void();
         let mut car = Car {
             center: center,
@@ -35,10 +38,12 @@ impl Car {
             rays: rays,
             path: path,
             walls: walls,
-            isxs: isxs
+            isxs: isxs,
+            self_isxs: self_isxs
         };
         car.recalc_rays();
         car.recalc_path();
+        car.calc_self_isxs();
         car
     }
 
@@ -63,13 +68,33 @@ impl Car {
         p / (1.0 + p.abs()) + pp
     }
 
+    fn val_of_action(&self, a: f64) -> f64 {
+        a / (1.0 + a.abs())
+    }
+    
+    pub fn action_penalty2(&self, action: &[f64]) -> f64 {
+        let d = (self.speed - self.val_of_action(action[0])).abs();
+        d    
+    }
+
+    pub fn action_penalty3(&self, action: &[f64]) -> f64 {
+        let d = (self.speed / (1.0-self.speed.abs()) - action[0]).abs();
+        d    
+    }
+
     pub fn act(&mut self, action: &[f64]) {
-        fn d(a: f64) -> f64 {
-            a / (1.0 + a.abs())
-        }
-        self.speed = d(action[0]);
-        self.wheels_angle = PI / 4.0 * d(action[1]);
+        self.speed = self.val_of_action(action[0]);
+        self.wheels_angle = PI / 4.0 * self.val_of_action(action[1]);
         self.move_or_stop(0.1);
+    }
+    
+    fn calc_self_isxs(&mut self) {
+        geom::rays_figure_intersections(&self.rays, &self.path,
+                                       -1.0, self.self_isxs.as_mut());
+        //println!("self isxs: {:?}", self.self_isxs);
+        for i in &self.self_isxs {
+            println!("{}", i.dist);
+        }
     }
     
     fn recalc_rays(&mut self) {
@@ -107,7 +132,10 @@ impl Car {
         } else {
             self.recalc_rays();
             geom::rays_figure_intersections(&self.rays, &self.walls,
-                                           -1.0, self.isxs.as_mut())            
+                                           -1.0, self.isxs.as_mut());
+            for i in 0..self.isxs.len() {
+                self.isxs[i].dist -= self.self_isxs[i].dist;
+            }
         }
     }
 

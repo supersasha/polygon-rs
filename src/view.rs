@@ -1,4 +1,5 @@
-use sfml::graphics::{Color, RenderTarget, RenderWindow, ShapeImpl, Text, Transformable, Font};
+use sfml::graphics::{Color, RenderTarget, RenderWindow, RenderStates,
+            ShapeImpl, Text, Transform, Transformable, Font, BlendMode};
 use sfml::window::{Key, VideoMode, event, window_style, ContextSettings};
 use sfml::system::{Vector2f, Vector2i};
 use std::thread::sleep;
@@ -9,6 +10,8 @@ use polygon::Polygon;
 use polyshape::{Polyshape, Polyshapable};
 use std::fs;
 use std::path;
+use std::ops::Deref;
+use plot::{Plot};
 
 #[derive(Clone, Copy)]
 pub struct TriangleShape;
@@ -103,13 +106,13 @@ pub fn run(workspace: &str) {
     let ws_dir = dir_of_workspace(workspace);
     let mut settings = ContextSettings::default();
     settings.0.antialiasing_level = 16;
-    let mut window = RenderWindow::new(VideoMode::new_init(1920, 970, 32),
+    let mut window = RenderWindow::new(VideoMode::new_init(1820, 970, 32),
                                        "Polygon",
                                        window_style::CLOSE,
                                        //&Default::default())
                                        &settings)
                          .unwrap();
-    window.set_position(&Vector2i::new(0, 0));
+    window.set_position(&Vector2i::new(100, 0));
     window.set_vertical_sync_enabled(true);
     //window.set_size(&Vector2u::new(400, 300));
 
@@ -117,8 +120,21 @@ pub fn run(workspace: &str) {
     println!("Window size: {:?}", ws);
     let mut view = View::new(Rect::new(0.0, 0.0, ws.y as f32, ws.y as f32),
                          Rect::new(-120.0, 120.0, 120.0, -120.0));
-        
+    
+    let plot_view = View::new(Rect::new(0.0, 0.0, 200.0, 200.0),
+                              Rect::new(0.0, 1.0, 2.0, 0.0));
+    
     let mut pg = Polygon::new(ws_dir.clone());
+    let mut v_fn = Vec::new();
+    let mut ac_fn0 = Vec::new();
+    let mut ac_fn1 = Vec::new();
+    for i in 0..39 {
+        v_fn.push(pg.v_fn(i as u32));
+        ac_fn0.push(pg.ac_fn(i as u32, 0));
+        ac_fn1.push(pg.ac_fn(i as u32, 1));
+    }
+    let mut v_n: i32 = 0;
+    //return;
     
     let loop_cycles = 1000;
     let mut all_cycles = 0;
@@ -127,6 +143,8 @@ pub fn run(workspace: &str) {
     let font = Font::new_from_file(font_filename).unwrap();
     
     let mut pause = false;
+    
+    let mut screen = 0;
     
     loop {
         if pause {
@@ -168,35 +186,88 @@ pub fn run(workspace: &str) {
                 event::KeyPressed { code: Key::Space, ..} => { 
                     pause = !pause;
                 },                
+                event::KeyPressed { code: Key::Num0, ..} => { 
+                    screen = 0;
+                },                
+                event::KeyPressed { code: Key::Num1, ..} => { 
+                    screen = 1;
+                },                
+                event::KeyPressed { code: Key::I, ..} => { 
+                    v_n += 1;
+                    if v_n > 38 {
+                        v_n = 38;
+                    }
+                },                
+                event::KeyPressed { code: Key::U, ..} => { 
+                    v_n -= 1;
+                    if v_n < 0 {
+                        v_n = 0;
+                    }
+                },                
                 _ => {}
             }
         }
 
         window.clear(&Color::white());
-        //window.draw(&shape1);
-        //window.draw(&shape2);
-        let world = pg.world.borrow();
-        let ps = world.get_polyshape(view);
-        window.draw(&ps);
-        let car = pg.car.borrow();
-        let ps_car = car.get_polyshape(view);
-        window.draw(&ps_car);
-        
-        let text = format!("Cycles: {}\nSpeed:  {}\nWheels: {}\nAct[0]: {}\n\
-                            Act[1]: {}\nReward: {}\nX: {}\nY: {}",
-                    all_cycles, car.speed, car.wheels_angle,
-                    world.last_action[0], world.last_action[1],
-                    pg.last_reward, car.center.x, car.center.y);
-        
-        let mut txt = Text::new().unwrap();
-        txt.set_font(&font);
-        txt.set_character_size(24);
-        txt.set_string(&text);
-        txt.set_position2f(1200.0, 30.0);
-        txt.set_color(&Color::black());
-        window.draw(&txt);
+
+        if screen == 0 {        
+            let world = pg.world.borrow();
+            let ps = world.get_polyshape(view);
+            window.draw(&ps);
+            let car = pg.car.borrow();
+            let ps_car = car.get_polyshape(view);
+            window.draw(&ps_car);
+            let learner = pg.learner.borrow();
+            let sigma = learner.state.sigma.borrow();
+            
+            let text = format!("Cycles: {}\nSpeed:  {}\nWheels: {}\nAct[0]: {}\n\
+                                Act[1]: {}\nReward: {}\nX: {}\nY: {}\n\
+                                Offset: {}\nSigma: {}",
+                        all_cycles, car.speed, car.wheels_angle,
+                        world.last_action[0], world.last_action[1],
+                        pg.last_reward, car.center.x, car.center.y,
+                        10.0 * world.way.offset(&world.old_way_point, &world.way_point),
+                        sigma.deref());
+            
+            let mut txt = Text::new().unwrap();
+            txt.set_font(&font);
+            txt.set_character_size(24);
+            txt.set_string(&text);
+            txt.set_position2f(1200.0, 30.0);
+            txt.set_color(&Color::black());
+            window.draw(&txt);
+        } else if screen == 1 {
+            //let mut plot = Plot::new(sin as fn(f64) -> f64, -10.0, 10.0, 1000);
+            //(&|x: f64| x*x, -10.0, 10.0, 1000);
+            let mut plot_v = Plot::new(&|x| v_fn[v_n as usize](x), -1.0, 1.0, 100);
+            plot_v.set_viewport(10.0, 10.0, 600.0, 600.0);
+            let mut plot_ac0 = Plot::new(&|x| ac_fn0[v_n as usize](x), -1.0, 1.0, 100);
+            plot_ac0.set_viewport(620.0, 10.0, 600.0, 600.0);
+            let mut plot_ac1 = Plot::new(&|x| ac_fn1[v_n as usize](x), -1.0, 1.0, 100);
+            plot_ac1.set_viewport(1230.0, 10.0, 600.0, 600.0);
+            let mut rs_v = RenderStates::new(BlendMode::blend_none(), plot_v.transform(), None, None);
+            let mut rs_ac0 = RenderStates::new(BlendMode::blend_none(), plot_ac0.transform(), None, None);
+            let mut rs_ac1 = RenderStates::new(BlendMode::blend_none(), plot_ac1.transform(), None, None);
+            window.draw_with_renderstates(&plot_v, &mut rs_v);
+            window.draw_with_renderstates(&plot_ac0, &mut rs_ac0);
+            window.draw_with_renderstates(&plot_ac1, &mut rs_ac1);
+
+            let text = format!("N: {}", v_n);
+            
+            let mut txt = Text::new().unwrap();
+            txt.set_font(&font);
+            txt.set_character_size(24);
+            txt.set_string(&text);
+            txt.set_position2f(0.0, 10.0);
+            txt.set_color(&Color::black());
+            window.draw(&txt);
+        }
         
         window.display();
         //sleep(Duration::from_millis(1));
     }
+}
+
+fn sin(x: f64) -> f64{
+    x.sin().exp().sin()
 }

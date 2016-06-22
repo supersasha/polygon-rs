@@ -1,7 +1,7 @@
 [package]
 name = "polygon"
 version = "0.1.0"
-authors = ["Alexander Ovchinnikov <aovchinn@machinezone.com>"]
+authors = ["Alexander Ovchinnikov <supersasha.ru@gmail.com>"]
 
 [features]
 default = ["fann/double"]
