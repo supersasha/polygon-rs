@@ -53,7 +53,7 @@ impl Car {
         self.recalc_rays();
         self.recalc_path();
     }
-    
+
     pub fn action_penalty(&self, action: &[f64]) -> f64 {
         let h = 0.1f64;
         let m = 8i32;
@@ -71,15 +71,15 @@ impl Car {
     fn val_of_action(&self, a: f64) -> f64 {
         a / (1.0 + a.abs())
     }
-    
+
     pub fn action_penalty2(&self, action: &[f64]) -> f64 {
         let d = (self.speed - self.val_of_action(action[0])).abs();
-        d    
+        d
     }
 
     pub fn action_penalty3(&self, action: &[f64]) -> f64 {
         let d = (self.speed / (1.0-self.speed.abs()) - action[0]).abs();
-        d    
+        d
     }
 
     pub fn act(&mut self, action: &[f64]) {
@@ -87,7 +87,7 @@ impl Car {
         self.wheels_angle = PI / 4.0 * self.val_of_action(action[1]);
         self.move_or_stop(0.1);
     }
-    
+
     fn calc_self_isxs(&mut self) {
         geom::rays_figure_intersections(&self.rays, &self.path,
                                        -1.0, self.self_isxs.as_mut());
@@ -96,7 +96,7 @@ impl Car {
             println!("{}", i.dist);
         }
     }
-    
+
     fn recalc_rays(&mut self) {
         geom::recalc_rays(self.rays.as_mut(), self.center, self.course);
     }
@@ -134,7 +134,9 @@ impl Car {
             geom::rays_figure_intersections(&self.rays, &self.walls,
                                            -1.0, self.isxs.as_mut());
             for i in 0..self.isxs.len() {
-                self.isxs[i].dist -= self.self_isxs[i].dist;
+                if self.isxs[i].dist >= 0.0 {
+                    self.isxs[i].dist -= self.self_isxs[i].dist;
+                }
             }
         }
     }

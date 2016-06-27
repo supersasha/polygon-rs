@@ -82,11 +82,11 @@ impl View {
             pos: Vector2f::new(px, py)
         }
     }
-    
+
     pub fn scale(&self) -> Vector2f {
         self.scale
     }
-    
+
     pub fn pos(&self) -> Vector2f {
         self.pos
     }
@@ -120,10 +120,10 @@ pub fn run(workspace: &str) {
     println!("Window size: {:?}", ws);
     let mut view = View::new(Rect::new(0.0, 0.0, ws.y as f32, ws.y as f32),
                          Rect::new(-120.0, 120.0, 120.0, -120.0));
-    
+
     let plot_view = View::new(Rect::new(0.0, 0.0, 200.0, 200.0),
                               Rect::new(0.0, 1.0, 2.0, 0.0));
-    
+
     let mut pg = Polygon::new(ws_dir.clone());
     let mut v_fn = Vec::new();
     let mut ac_fn0 = Vec::new();
@@ -135,17 +135,17 @@ pub fn run(workspace: &str) {
     }
     let mut v_n: i32 = 0;
     //return;
-    
+
     let loop_cycles = 1000;
     let mut all_cycles = 0;
     let font_filename = "C:\\Users\\super\\.cargo\\registry\\src\\github.com-88ac128001ac3a9a\\sfml-0.11.2\\examples\\resources\\sansation.ttf";
-    //let font_filename = "/Users/aovchinn/Downloads/SourceCodePro_FontsOnly-1.017/TTF/SourceCodePro-Regular.ttf";    
+    //let font_filename = "/Users/aovchinn/Downloads/SourceCodePro_FontsOnly-1.017/TTF/SourceCodePro-Regular.ttf";
     let font = Font::new_from_file(font_filename).unwrap();
-    
+
     let mut pause = false;
-    
+
     let mut screen = 0;
-    
+
     loop {
         if pause {
             sleep(Duration::from_millis(100));
@@ -160,57 +160,57 @@ pub fn run(workspace: &str) {
             match event {
                 event::Closed => return,
                 event::KeyPressed { code: Key::Escape, .. } => return,
-                event::KeyPressed { code: Key::A, ..} => { 
+                event::KeyPressed { code: Key::A, ..} => {
                     view.scale.x *= 2.0;
                     view.scale.y *= 2.0;
                 },
-                event::KeyPressed { code: Key::Z, ..} => { 
+                event::KeyPressed { code: Key::Z, ..} => {
                     view.scale.x /= 2.0;
-                    view.scale.y /= 2.0; 
+                    view.scale.y /= 2.0;
                 },
-                event::KeyPressed { code: Key::Left, ..} => { 
+                event::KeyPressed { code: Key::Left, ..} => {
                     view.pos.x += 50.0;
                 },
-                event::KeyPressed { code: Key::Right, ..} => { 
+                event::KeyPressed { code: Key::Right, ..} => {
                     view.pos.x -= 50.0;
                 },
-                event::KeyPressed { code: Key::Up, ..} => { 
+                event::KeyPressed { code: Key::Up, ..} => {
                     view.pos.y += 50.0;
                 },
-                event::KeyPressed { code: Key::Down, ..} => { 
+                event::KeyPressed { code: Key::Down, ..} => {
                     view.pos.y -= 50.0;
                 },
-                event::KeyPressed { code: Key::P, ..} => { 
+                event::KeyPressed { code: Key::P, ..} => {
                     pg.learner.borrow().print();
                 },
-                event::KeyPressed { code: Key::Space, ..} => { 
+                event::KeyPressed { code: Key::Space, ..} => {
                     pause = !pause;
-                },                
-                event::KeyPressed { code: Key::Num0, ..} => { 
+                },
+                event::KeyPressed { code: Key::Num0, ..} => {
                     screen = 0;
-                },                
-                event::KeyPressed { code: Key::Num1, ..} => { 
+                },
+                event::KeyPressed { code: Key::Num1, ..} => {
                     screen = 1;
-                },                
-                event::KeyPressed { code: Key::I, ..} => { 
+                },
+                event::KeyPressed { code: Key::I, ..} => {
                     v_n += 1;
                     if v_n > 38 {
                         v_n = 38;
                     }
-                },                
-                event::KeyPressed { code: Key::U, ..} => { 
+                },
+                event::KeyPressed { code: Key::U, ..} => {
                     v_n -= 1;
                     if v_n < 0 {
                         v_n = 0;
                     }
-                },                
+                },
                 _ => {}
             }
         }
 
         window.clear(&Color::white());
 
-        if screen == 0 {        
+        if screen == 0 {
             let world = pg.world.borrow();
             let ps = world.get_polyshape(view);
             window.draw(&ps);
@@ -219,7 +219,7 @@ pub fn run(workspace: &str) {
             window.draw(&ps_car);
             let learner = pg.learner.borrow();
             let sigma = learner.state.sigma.borrow();
-            
+
             let text = format!("Cycles: {}\nSpeed:  {}\nWheels: {}\nAct[0]: {}\n\
                                 Act[1]: {}\nReward: {}\nX: {}\nY: {}\n\
                                 Offset: {}\nSigma: {}",
@@ -228,7 +228,7 @@ pub fn run(workspace: &str) {
                         pg.last_reward, car.center.x, car.center.y,
                         10.0 * world.way.offset(&world.old_way_point, &world.way_point),
                         sigma.deref());
-            
+
             let mut txt = Text::new().unwrap();
             txt.set_font(&font);
             txt.set_character_size(24);
@@ -253,7 +253,7 @@ pub fn run(workspace: &str) {
             window.draw_with_renderstates(&plot_ac1, &mut rs_ac1);
 
             let text = format!("N: {}", v_n);
-            
+
             let mut txt = Text::new().unwrap();
             txt.set_font(&font);
             txt.set_character_size(24);
@@ -262,7 +262,7 @@ pub fn run(workspace: &str) {
             txt.set_color(&Color::black());
             window.draw(&txt);
         }
-        
+
         window.display();
         //sleep(Duration::from_millis(1));
     }
