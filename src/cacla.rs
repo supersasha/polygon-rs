@@ -85,7 +85,7 @@ impl Approx {
 
 #[derive(RustcEncodable, RustcDecodable)]
 pub struct CaclaState {
-    action: Rc<RefCell<Vec<f64>>>,
+    action: Vec<f64>,
     alpha: f64,
     beta: f64,
     gamma: f64,
@@ -115,24 +115,23 @@ impl Cacla {
                 gamma: gamma,
                 sigma: RefCell::new(sigma),
                 var: 1.0,
-                action: Rc::new(RefCell::new(action))
+                action: action
             },
             V: Rc::new(RefCell::new(Approx::new(state_ranges, hidden, 1, alpha))),
             Ac: Rc::new(RefCell::new(Approx::new(state_ranges, hidden, dim_actions, alpha)))
         }
     }
 
-    pub fn get_action(&self, state: &[FannType], wander_more: bool) -> Rc<RefCell<Vec<f64>>> {
+    pub fn get_action(&mut self, state: &Vec<FannType>, wander_more: bool) -> Vec<f64> {
         let mu = self.Ac.borrow().call(state);
         let mut rng = rand::thread_rng();
-        let mut action = self.state.action.borrow_mut();
         let mut sigma = self.state.sigma.borrow_mut();
         //if wander_more {
         //    sigma = 1.0
         //}
         for i in 0..mu.len() {
             let normal = Normal::new(mu[i], *sigma.deref_mut());
-            action[i] = normal.ind_sample(&mut rng);
+            self.state.action[i] = normal.ind_sample(&mut rng);
         }
         if *sigma.deref_mut() > 0.1 {
             *sigma.deref_mut() *= 0.99999993068528434627048314517621;
@@ -140,8 +139,8 @@ impl Cacla {
         self.state.action.clone()
     }
 
-    pub fn step(&mut self, old_state: &[FannType], new_state: &[FannType],
-            action: &[FannType], reward: f64) {
+    pub fn step(&mut self, old_state: &Vec<FannType>, new_state: &Vec<FannType>,
+            action: &Vec<FannType>, reward: f64) {
         let old_state_v = self.V.borrow().call(old_state);
         let new_state_v = self.V.borrow().call(new_state);
         let target = &[reward + self.state.gamma * new_state_v[0]];
@@ -177,12 +176,12 @@ impl Cacla {
         self.Ac.borrow_mut().load(&dir.join("/Ac.net"));
     }
 
-    pub fn v_fn(&self) -> Box<Fn(&[FannType]) -> Vec<FannType>> {
+    pub fn v_fn(&self) -> Box<Fn(&Vec<FannType>) -> Vec<FannType>> {
         let V = self.V.clone();
         Box::new(move |x| V.borrow().call(x))
     }
 
-    pub fn ac_fn(&self) -> Box<Fn(&[FannType]) -> Vec<FannType>> {
+    pub fn ac_fn(&self) -> Box<Fn(&Vec<FannType>) -> Vec<FannType>> {
         let Ac = self.Ac.clone();
         Box::new(move |x| Ac.borrow().call(x))
     }

@@ -19,7 +19,7 @@ impl MinMax {
             ranges: ranges.clone()
         }
     }
-    fn norm(&self, inp: &[f64], out: &mut [f64]) {
+    fn norm(&self, inp: &Vec<f64>, out: &mut Vec<f64>) {
         let n = inp.len();
         for i in 0..n {
             out[i] = normalize(&self.ranges[i], inp[i], &TRANGE);
@@ -78,7 +78,7 @@ impl World {
         }
     }
 
-    pub fn act(&mut self, action: &[f64]) {
+    pub fn act(&mut self, action: &Vec<f64>) {
         self.car.act(action);
         self.old_way_point = self.way_point;
         self.way_point = self.way.where_is(self.car.center);
@@ -250,17 +250,16 @@ impl Polygon {
         let mut s = self.world.state.clone();
         let mut new_s = self.world.state.clone();
         for _ in 0..ncycles {
-            self.minmax.norm(self.world.state.as_ref(), s.as_mut());
-            let a = self.learner.get_action(
-                s.as_ref(), false);
-            self.world.act(a.borrow().as_ref());
+            self.minmax.norm(&self.world.state, &mut s);
+            let a = self.learner.get_action(&s, false);
+            self.world.act(&a);
             let r = self.world.reward();
 
-            self.minmax.norm(self.world.state.as_ref(), new_s.as_mut());
-            self.learner.step(s.as_ref(),
-                                    new_s.as_ref(),
-                                    a.borrow().as_ref(),
-                                    normalize(&self.reward_range, r, &TRANGE));
+            self.minmax.norm(&self.world.state, &mut new_s);
+            self.learner.step(&s,
+                              &new_s,
+                              &a,
+                              normalize(&self.reward_range, r, &TRANGE));
             self.last_reward = r;
         }
     }
