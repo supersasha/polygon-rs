@@ -181,7 +181,7 @@ pub fn run(workspace: &str) {
                     view.pos.y -= 50.0;
                 },
                 event::KeyPressed { code: Key::P, ..} => {
-                    pg.learner.borrow().print();
+                    pg.learner.print();
                 },
                 event::KeyPressed { code: Key::Space, ..} => {
                     pause = !pause;
@@ -217,8 +217,7 @@ pub fn run(workspace: &str) {
             let car = &pg.world.car;
             let ps_car = car.get_polyshape(view);
             window.draw(&ps_car);
-            let learner = pg.learner.borrow();
-            let sigma = learner.state.sigma.borrow();
+            let sigma = pg.learner.state.sigma.borrow();
 
             let text = format!("Cycles: {}\nSpeed:  {}\nWheels: {}\nAct[0]: {}\n\
                                 Act[1]: {}\nReward: {}\nX: {}\nY: {}\n\

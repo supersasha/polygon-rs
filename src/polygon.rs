@@ -192,7 +192,7 @@ pub struct Polygon {
     pub world: World,
     pub walls: Rc<Figure>,
     pub last_reward: f64,
-    pub learner: Rc<RefCell<Cacla>>,
+    pub learner: Cacla,
     minmax: MinMax,
     reward_range: Range,
     stopped_cycles: u32,
@@ -216,18 +216,18 @@ impl Polygon {
                                 action_dim);
         let state_ranges = Polygon::mk_state_ranges(state_dim);
         let minmax = MinMax::new(&state_ranges);
-        let learner = Rc::new(RefCell::new(Cacla::new(&state_ranges,
+        let learner = Cacla::new(&state_ranges,
                             action_dim as u32,
                             30,   // hidden
                             0.99,  // gamma
                             0.01, // alpha !!!
                             0.001, // beta
-                            0.1)));  // sigma
+                            0.1);  // sigma
 
         Polygon {
             world: world,
             walls: walls.clone(),
-            learner: learner.clone(),
+            learner: learner,
             minmax: minmax,
             reward_range: Range::new(-300.0, 40.0), //(-4.0, 1.0) - for reward_old,
             last_reward: 0.0,
@@ -239,11 +239,11 @@ impl Polygon {
     }
 
     pub fn save(&self) {
-        self.learner.borrow().save(&self.ws_dir);
+        self.learner.save(&self.ws_dir);
     }
 
     pub fn load(&mut self) {
-        self.learner.borrow_mut().load(&self.ws_dir);
+        self.learner.load(&self.ws_dir);
     }
 
     pub fn run(&mut self, ncycles: u32) {
@@ -251,13 +251,13 @@ impl Polygon {
         let mut new_s = self.world.state.clone();
         for _ in 0..ncycles {
             self.minmax.norm(self.world.state.as_ref(), s.as_mut());
-            let a = self.learner.borrow().get_action(
+            let a = self.learner.get_action(
                 s.as_ref(), false);
             self.world.act(a.borrow().as_ref());
             let r = self.world.reward();
 
             self.minmax.norm(self.world.state.as_ref(), new_s.as_mut());
-            self.learner.borrow_mut().step(s.as_ref(),
+            self.learner.step(s.as_ref(),
                                     new_s.as_ref(),
                                     a.borrow().as_ref(),
                                     normalize(&self.reward_range, r, &TRANGE));
@@ -267,8 +267,7 @@ impl Polygon {
 
     pub fn v_fn(&self, n: u32) -> Box<Fn(f64) -> f64> {
         let s = self.world.state.clone();
-        let l = self.learner.clone();
-        let f = l.borrow().v_fn();
+        let f = self.learner.v_fn();
         Box::new(move |x| {
             let mut state = s.clone();
             state[n as usize] = x;
@@ -279,8 +278,7 @@ impl Polygon {
 
     pub fn ac_fn(&self, n: u32, m: u32) -> Box<Fn(f64) -> f64> {
         let s = self.world.state.clone();
-        let l = self.learner.clone();
-        let f = l.borrow().ac_fn();
+        let f = self.learner.ac_fn();
         Box::new(move |x| {
             let mut state = s.clone();
             state[n as usize] = x;
