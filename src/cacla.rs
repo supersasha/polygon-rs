@@ -48,7 +48,7 @@ impl Approx {
         //TODO:adjust network params
         net.set_activation_func_hidden(ActivationFunc::SigmoidSymmetric);
         net.set_activation_func_output(ActivationFunc::Linear);
-        net.randomize_weights(-0.01, 0.01);
+        net.randomize_weights(-0.001, 0.001);
         let train_params = IncrementalParams{learning_momentum: 0.0,
                                              learning_rate: learning_rate as f32};
         net.set_train_algorithm(TrainAlgorithm::Incremental(train_params));
@@ -68,7 +68,7 @@ impl Approx {
     fn update(&mut self, target: &[FannType], x: &[FannType]) {
         self.net.train(x, target);
     }
-    
+
     fn save(&self, filename: &path::PathBuf) {
         self.net.save(filename);
     }
@@ -77,7 +77,7 @@ impl Approx {
         // TODO: save and load other settings
         self.net = Fann::from_file(filename).unwrap()
     }
-    
+
     fn print(&self) {
         self.net.print_connections();
     }
@@ -85,7 +85,7 @@ impl Approx {
 
 #[derive(RustcEncodable, RustcDecodable)]
 pub struct CaclaState {
-    action: Rc<RefCell<Vec<f64>>>,    
+    action: Rc<RefCell<Vec<f64>>>,
     alpha: f64,
     beta: f64,
     gamma: f64,
@@ -129,13 +129,13 @@ impl Cacla {
         let mut sigma = self.state.sigma.borrow_mut();
         //if wander_more {
         //    sigma = 1.0
-        //} 
+        //}
         for i in 0..mu.len() {
             let normal = Normal::new(mu[i], *sigma.deref_mut());
             action[i] = normal.ind_sample(&mut rng);
         }
         if *sigma.deref_mut() > 0.1 {
-            *sigma.deref_mut() *= 0.99999993068528434627048314517621;            
+            *sigma.deref_mut() *= 0.99999993068528434627048314517621;
         }
         self.state.action.clone()
     }
@@ -160,7 +160,7 @@ impl Cacla {
             }
         }
     }
-    
+
     pub fn save(&self, dir: &path::PathBuf) {
         let mut f = File::create(&dir.join("/cacla.state")).unwrap();
         write!(f, "{}", json::encode(&self.state).unwrap());
@@ -186,7 +186,7 @@ impl Cacla {
         let Ac = self.Ac.clone();
         Box::new(move |x| Ac.borrow().call(x))
     }
-    
+
     pub fn print(&self) {
         println!("Cacla state: {}", json::encode(&self.state).unwrap());
         println!("CONNECTIONS [V]:  ------------------------------");

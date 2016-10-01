@@ -220,9 +220,9 @@ impl Polygon {
         let minmax = MinMax::new(&state_ranges);
         let learner = Rc::new(RefCell::new(Cacla::new(&state_ranges,
                             action_dim as u32,
-                            100,   // hidden
+                            10,   // hidden
                             0.99,  // gamma
-                            0.003, // alpha !!!
+                            0.01, // alpha !!!
                             0.001, // beta
                             0.1)));  // sigma
 
