@@ -1,5 +1,6 @@
 use geom::{self, Pt, Sect, Isx, Figure, Mtx2, recalc_rays};
 use std::rc::Rc;
+use std::cell::RefCell;
 use std::f64::consts::PI;
 
 pub struct Car {
@@ -14,7 +15,7 @@ pub struct Car {
     pub path: Figure,
     walls: Rc<Figure>,
     pub isxs: Vec<Isx>,
-    self_isxs: Vec<Isx>,
+    self_isxs: Rc<RefCell<Vec<Isx>>>,
 }
 
 impl Car {
@@ -39,12 +40,29 @@ impl Car {
             path: path,
             walls: walls,
             isxs: isxs,
-            self_isxs: self_isxs
+            self_isxs: Rc::new(RefCell::new(self_isxs))
         };
         car.recalc_rays();
         car.recalc_path();
         car.calc_self_isxs();
         car
+    }
+
+    pub fn clone(&self) -> Car {
+        Car {
+            center: self.center,
+            course: self.course,
+            length: self.length,
+            width: self.width,
+            base: self.base,
+            wheels_angle: self.wheels_angle,
+            speed: self.speed,
+            rays: self.rays.clone(),
+            path: self.path.clone(),
+            walls: self.walls.clone(),
+            isxs: self.isxs.clone(),
+            self_isxs: self.self_isxs.clone()
+        }
     }
 
     pub fn set_pos(&mut self, center: Pt, course: Pt) {
@@ -90,11 +108,13 @@ impl Car {
 
     fn calc_self_isxs(&mut self) {
         geom::rays_figure_intersections(&self.rays, &self.path,
-                                       -1.0, self.self_isxs.as_mut());
+                                       -1.0, self.self_isxs.borrow_mut().as_mut());
         //println!("self isxs: {:?}", self.self_isxs);
-        for i in &self.self_isxs {
+        /*
+        for i in self.self_isxs.borrow().as_ref() {
             println!("{}", i.dist);
         }
+        */
     }
 
     fn recalc_rays(&mut self) {
@@ -135,7 +155,7 @@ impl Car {
                                            -1.0, self.isxs.as_mut());
             for i in 0..self.isxs.len() {
                 if self.isxs[i].dist >= 0.0 {
-                    self.isxs[i].dist -= self.self_isxs[i].dist;
+                    self.isxs[i].dist -= self.self_isxs.borrow()[i].dist;
                 }
             }
         }

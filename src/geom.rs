@@ -11,15 +11,15 @@ impl Pt {
     pub fn zero() -> Pt {
         Pt{x: 0.0, y: 0.0}
     }
-    
+
     pub fn new(x: f64, y: f64) -> Pt {
         Pt{x: x, y: y}
     }
-    
+
     pub fn from_slice(p: &[f64]) -> Pt {
         Pt::new(p[0], p[1])
     }
-    
+
     pub fn norm(&self) -> f64 {
         (self.x*self.x + self.y*self.y).sqrt()
     }
@@ -61,7 +61,7 @@ pub struct Mtx2 {
 impl Mtx2 {
     pub fn rows(p1: Pt, p2: Pt) -> Mtx2 {
         Mtx2 {
-            rows: [p1, p2] 
+            rows: [p1, p2]
         }
     }
 }
@@ -142,6 +142,12 @@ impl Figure {
     pub fn void() -> Figure {
         Figure {
             paths: Vec::new()
+        }
+    }
+
+    pub fn clone(&self) -> Figure {
+        Figure {
+            paths: self.paths.clone()
         }
     }
 
@@ -277,7 +283,7 @@ fn perftest(f: i32) {
 
 fn main() {
     let f: i32 = env::args().nth(1).unwrap().parse().unwrap_or(0i32);
-    
+
     perftest(f);
 }
 */

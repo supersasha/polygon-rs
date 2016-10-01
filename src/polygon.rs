@@ -78,6 +78,18 @@ impl World {
         }
     }
 
+    pub fn clone(&self) -> World {
+        World {
+            car: self.car.clone(),
+            walls: self.walls.clone(),
+            way: self.way.clone(),
+            way_point: self.way_point,
+            old_way_point: self.old_way_point,
+            state: self.state.clone(),
+            last_action: self.last_action.clone()
+        }
+    }
+
     pub fn act(&mut self, action: &Vec<f64>) {
         self.car.act(action);
         self.old_way_point = self.way_point;
@@ -189,7 +201,7 @@ fn min(a: f64, b: f64) -> f64 {
 }
 
 pub struct Polygon {
-    pub world: World,
+    pub worlds: Vec<World>,
     pub walls: Rc<Figure>,
     pub last_reward: f64,
     pub learner: Cacla,
@@ -223,9 +235,11 @@ impl Polygon {
                             0.01, // alpha !!!
                             0.001, // beta
                             0.1);  // sigma
+        let mut worlds = Vec::with_capacity(100000);
+        worlds.push(world);
 
         Polygon {
-            world: world,
+            worlds: worlds,
             walls: walls.clone(),
             learner: learner,
             minmax: minmax,
@@ -247,15 +261,15 @@ impl Polygon {
     }
 
     pub fn run(&mut self, ncycles: u32) {
-        let mut s = self.world.state.clone();
-        let mut new_s = self.world.state.clone();
+        let mut s = self.worlds[0].state.clone();
+        let mut new_s = self.worlds[0].state.clone();
         for _ in 0..ncycles {
-            self.minmax.norm(&self.world.state, &mut s);
+            self.minmax.norm(&self.worlds[0].state, &mut s);
             let a = self.learner.get_action(&s, false);
-            self.world.act(&a);
-            let r = self.world.reward();
+            self.worlds[0].act(&a);
+            let r = self.worlds[0].reward();
 
-            self.minmax.norm(&self.world.state, &mut new_s);
+            self.minmax.norm(&self.worlds[0].state, &mut new_s);
             self.learner.step(&s,
                               &new_s,
                               &a,
@@ -264,8 +278,12 @@ impl Polygon {
         }
     }
 
+    pub fn current_world(&self) -> &World {
+        &self.worlds[0]
+    }
+
     pub fn v_fn(&self, n: u32) -> Box<Fn(f64) -> f64> {
-        let s = self.world.state.clone();
+        let s = self.worlds[0].state.clone();
         let f = self.learner.v_fn();
         Box::new(move |x| {
             let mut state = s.clone();
@@ -276,7 +294,7 @@ impl Polygon {
     }
 
     pub fn ac_fn(&self, n: u32, m: u32) -> Box<Fn(f64) -> f64> {
-        let s = self.world.state.clone();
+        let s = self.worlds[0].state.clone();
         let f = self.learner.ac_fn();
         Box::new(move |x| {
             let mut state = s.clone();
