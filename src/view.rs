@@ -211,10 +211,10 @@ pub fn run(workspace: &str) {
         window.clear(&Color::white());
 
         if screen == 0 {
-            let world = pg.world.borrow();
+            let world = &pg.world;
             let ps = world.get_polyshape(view);
             window.draw(&ps);
-            let car = pg.car.borrow();
+            let car = &pg.world.car;
             let ps_car = car.get_polyshape(view);
             window.draw(&ps_car);
             let learner = pg.learner.borrow();

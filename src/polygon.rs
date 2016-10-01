@@ -41,7 +41,7 @@ fn normalize(from: &Range, x: f64, to: &Range) -> f64 {
 }
 
 pub struct World {
-    pub car: Rc<RefCell<Car>>,
+    pub car: Car,
     pub walls: Rc<Figure>,
     pub way: Rc<Way>,
     pub way_point: WayPoint,
@@ -52,18 +52,25 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(car: Rc<RefCell<Car>>, walls: Rc<Figure>,
+    pub fn new(nrays: usize, walls: Rc<Figure>,
            way: Rc<Way>,
            state_dim: usize, action_dim: usize) -> World {
         let mut state = Vec::with_capacity(state_dim);
         state.resize(state_dim, 0.0);
         let mut last_action = Vec::with_capacity(action_dim);
         last_action.resize(action_dim, 0.0);
+        let car = Car::new(Pt::new(-110.0, 0.0),
+                            Pt::new(0.0, 1.0),
+                            3.0, // length
+                            1.6, // width
+                            nrays,
+                            walls.clone());
+        let center = car.center;
         World {
-            car: car.clone(),
+            car: car,
             walls: walls,
             way: way.clone(),
-            way_point: way.where_is(car.borrow().center),
+            way_point: way.where_is(center),
             old_way_point: WayPoint::zero(),
             state: state,
             //prev_state: state.clone(),
@@ -72,22 +79,22 @@ impl World {
     }
 
     pub fn act(&mut self, action: &[f64]) {
-        self.car.borrow_mut().act(action);
+        self.car.act(action);
         self.old_way_point = self.way_point;
-        self.way_point = self.way.where_is(self.car.borrow().center);
+        self.way_point = self.way.where_is(self.car.center);
         self.recalc_state();
         self.last_action.clone_from_slice(action);
     }
 
     pub fn reward_old_2(&self) -> f64 {
         let mut hp: f64 = 0.0;
-        if self.car.borrow().speed.abs() < 0.001 {
+        if self.car.speed.abs() < 0.001 {
             hp = 1.0;
         }
-        let ap = 2.0 * self.car.borrow().wheels_angle.abs();
-        let cap = self.car.borrow().action_penalty(&self.last_action);
+        let ap = 2.0 * self.car.wheels_angle.abs();
+        let cap = self.car.action_penalty(&self.last_action);
         let penalty = ap + hp + cap;
-        let speed = self.car.borrow().speed;
+        let speed = self.car.speed;
         if speed > 0.0 {
             speed - penalty
         } else {
@@ -116,16 +123,16 @@ impl World {
         let sigma = 2.0 / 3.0;
         let hit_penalty = (-min_dist*min_dist / (2.0 * sigma * sigma)).exp();
 
-        let ap = self.car.borrow().wheels_angle.abs(); // 0.0..2.0
-        let cap = self.car.borrow().action_penalty(&self.last_action); // 0.0..2.0
-        let cap2 = self.car.borrow().action_penalty2(&self.last_action); // 0.0..1.0
+        let ap = self.car.wheels_angle.abs(); // 0.0..2.0
+        let cap = self.car.action_penalty(&self.last_action); // 0.0..2.0
+        let cap2 = self.car.action_penalty2(&self.last_action); // 0.0..1.0
         //let penalty = hit_penalty + cap + ap;
 
         let penalty = 1.0 * (1.0 * hit_penalty + 1.0 * cap + 1.0 * ap + 2.0 * cap2);
         //let reward = self.way.offset(&self.old_way_point, &self.way_point); // -1.0..1.0
         //5.0 * reward - penalty
 
-        let speed = self.car.borrow().speed;
+        let speed = self.car.speed;
         if speed > 0.0 {
             speed - penalty
         } else {
@@ -135,7 +142,7 @@ impl World {
     }
 
     pub fn reward(&self) -> f64 {
-        let speed = self.car.borrow().speed;
+        let speed = self.car.speed;
         let mut dist_reward = 0.0;
         let speed_reward = 1.0 - (speed - 1.0) * (speed - 1.0);
         /*let mut speed_reward = speed;
@@ -148,10 +155,10 @@ impl World {
             dist_reward = min(s * (1.0 - 0.0099 * s), dist_reward);
         }
 
-        let wheels = self.car.borrow().wheels_angle;
+        let wheels = self.car.wheels_angle;
         let wheels_reward = - wheels * wheels;
 
-        let action_penalty = self.car.borrow().action_penalty3(&self.last_action);
+        let action_penalty = self.car.action_penalty3(&self.last_action);
         let action_reward = -action_penalty * action_penalty;
 
         speed_reward + 20.0*dist_reward + 10.0*wheels_reward + action_reward
@@ -160,16 +167,16 @@ impl World {
     fn recalc_state(&mut self) {
         //self.prev_state.clone_from(&self.state);
         let n = self.nrays();
-        for (i, isx) in self.car.borrow().isxs.iter().enumerate() {
+        for (i, isx) in self.car.isxs.iter().enumerate() {
             self.state[i] = if isx.dist >= 0.0 { isx.dist } else { 10.0 }; // 10.0; // !!!
         }
-        self.state[n] = self.car.borrow().speed; // / 1.0; // !!!
-        self.state[n+1] = self.car.borrow().wheels_angle; // / 1.0; // !!!
-        self.state[n+2] = self.car.borrow().action_penalty3(&self.last_action);
+        self.state[n] = self.car.speed; // / 1.0; // !!!
+        self.state[n+1] = self.car.wheels_angle; // / 1.0; // !!!
+        self.state[n+2] = self.car.action_penalty3(&self.last_action);
     }
 
     fn nrays(&self) -> usize {
-        self.car.borrow().isxs.len()
+        self.car.isxs.len()
     }
 }
 
@@ -183,7 +190,6 @@ fn min(a: f64, b: f64) -> f64 {
 
 pub struct Polygon {
     pub world: World,
-    pub car: Rc<RefCell<Car>>,
     pub walls: Rc<Figure>,
     pub last_reward: f64,
     pub learner: Rc<RefCell<Cacla>>,
@@ -203,17 +209,11 @@ impl Polygon {
         let way = Rc::new(Way::new(&clover_data, scale));
         let action_dim = 2;
         let state_dim = nrays + 2 + 1;
-        let car = Rc::new(RefCell::new(Car::new(Pt::new(-110.0, 0.0),
-                                        Pt::new(0.0, 1.0),
-                                        3.0, // length
-                                        1.6, // width
-                                        nrays,
-                                        walls.clone())));
-        let world = World::new(car.clone(),
-                                       walls.clone(),
-                                       way.clone(),
-                                       state_dim,
-                                       action_dim);
+        let world = World::new(nrays,
+                                walls.clone(),
+                                way.clone(),
+                                state_dim,
+                                action_dim);
         let state_ranges = Polygon::mk_state_ranges(state_dim);
         let minmax = MinMax::new(&state_ranges);
         let learner = Rc::new(RefCell::new(Cacla::new(&state_ranges,
@@ -226,7 +226,6 @@ impl Polygon {
 
         Polygon {
             world: world,
-            car: car.clone(),
             walls: walls.clone(),
             learner: learner.clone(),
             minmax: minmax,
