@@ -136,7 +136,7 @@ pub fn run(workspace: &str) {
     let mut v_n: i32 = 0;
     //return;
 
-    let loop_cycles = 1000;
+    let loop_cycles = 100;
     let mut all_cycles = 0;
     let font_filename = "C:\\Users\\super\\.cargo\\registry\\src\\github.com-88ac128001ac3a9a\\sfml-0.11.2\\examples\\resources\\sansation.ttf";
     //let font_filename = "/Users/aovchinn/Downloads/SourceCodePro_FontsOnly-1.017/TTF/SourceCodePro-Regular.ttf";

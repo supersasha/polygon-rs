@@ -115,11 +115,11 @@ impl Projection {
         let x = a + lambda * (b - a);
         let dist = (p - x).norm();
         let length = (b - a).norm();
-        
+
         Projection {
             distance: dist,
             wp: WayPoint { segment: segment, offset: lambda * length}
-        }  
+        }
     }
 }
 
@@ -147,7 +147,7 @@ impl Way {
             segment_len: segment_len
         }
     }
-    
+
     pub fn where_is(&self, p: Pt) -> WayPoint {
         /*
         Нужно считать проекции на все прямые,
@@ -167,7 +167,7 @@ impl Way {
         }
         return min_pr.wp;
     }
-    
+
     pub fn offset(&self, old: &WayPoint, new: &WayPoint) -> f64 {
         if new.segment == old.segment {
             new.offset - old.offset

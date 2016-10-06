@@ -6,6 +6,7 @@ use track::{clover, Way, WayPoint, clover_data};
 use cacla::{Cacla, Range};
 use std::f64::consts::PI;
 use std::path;
+use rand::{thread_rng, Rng};
 
 const TRANGE: Range = Range{lo: -1.0, hi: 1.0};
 
@@ -157,6 +158,9 @@ impl World {
         let speed = self.car.speed;
         let mut dist_reward = 0.0;
         let speed_reward = 1.0 - (speed - 1.0) * (speed - 1.0);
+
+        let offset = self.way.offset(&self.old_way_point, &self.way_point);
+        let offset_reward = 50.0 * offset;
         /*let mut speed_reward = speed;
         if speed < 0.0 {
             speed_reward /= 2.0;
@@ -173,7 +177,7 @@ impl World {
         let action_penalty = self.car.action_penalty3(&self.last_action);
         let action_reward = -action_penalty * action_penalty;
 
-        speed_reward + 20.0*dist_reward + 10.0*wheels_reward + action_reward
+        offset_reward + /*speed_reward +*/ 20.0*dist_reward + 10.0*wheels_reward + action_reward
     }
 
     fn recalc_state(&mut self) {
@@ -210,14 +214,15 @@ pub struct Polygon {
     stopped_cycles: u32,
     wander_cycles: u32,
     epoch: u32,
-    ws_dir: path::PathBuf
+    ws_dir: path::PathBuf,
+    current_index: usize,
 }
 
 impl Polygon {
     pub fn new(ws_dir: path::PathBuf) -> Polygon {
         let nrays = 36;
         let scale = 10.0;
-        let walls = Rc::new(clover(2.0, scale));
+        let walls = Rc::new(clover(4.0, scale));
         let way = Rc::new(Way::new(&clover_data, scale));
         let action_dim = 2;
         let state_dim = nrays + 2 + 1;
@@ -230,12 +235,12 @@ impl Polygon {
         let minmax = MinMax::new(&state_ranges);
         let learner = Cacla::new(&state_ranges,
                             action_dim as u32,
-                            30,   // hidden
+                            12,   // hidden
                             0.99,  // gamma
                             0.01, // alpha !!!
                             0.001, // beta
                             0.1);  // sigma
-        let mut worlds = Vec::with_capacity(100000);
+        let mut worlds = Vec::with_capacity(1000000);
         worlds.push(world);
 
         Polygon {
@@ -243,12 +248,13 @@ impl Polygon {
             walls: walls.clone(),
             learner: learner,
             minmax: minmax,
-            reward_range: Range::new(-300.0, 40.0), //(-4.0, 1.0) - for reward_old,
+            reward_range: Range::new(-3000.0, 40.0), //(-4.0, 1.0) - for reward_old,
             last_reward: 0.0,
             stopped_cycles: 0,
             wander_cycles: 0,
             epoch: 1000000,
-            ws_dir: ws_dir
+            ws_dir: ws_dir,
+            current_index: 0,
         }
     }
 
@@ -263,23 +269,52 @@ impl Polygon {
     pub fn run(&mut self, ncycles: u32) {
         let mut s = self.worlds[0].state.clone();
         let mut new_s = self.worlds[0].state.clone();
+        let N = self.worlds.capacity();
+        let M = 20;
+        let mut rng = thread_rng();
         for _ in 0..ncycles {
-            self.minmax.norm(&self.worlds[0].state, &mut s);
-            let a = self.learner.get_action(&s, false);
-            self.worlds[0].act(&a);
-            let r = self.worlds[0].reward();
-
-            self.minmax.norm(&self.worlds[0].state, &mut new_s);
-            self.learner.step(&s,
-                              &new_s,
-                              &a,
-                              normalize(&self.reward_range, r, &TRANGE));
-            self.last_reward = r;
+            if self.worlds.len() > N - 2 {
+                for i in 0..M {
+                    let index = rng.gen_range(0, self.worlds.len());
+                    self.run_once_for_world(index, &mut s, &mut new_s);
+                }
+            }
+            if self.current_index < N - 1 {
+                if self.worlds.len() < N {
+                    let new_world = self.worlds[self.current_index].clone();
+                    self.worlds.push(new_world);
+                    self.current_index += 1;
+                } else {
+                    //if rng.gen_range(0, 10) == 0 {
+                    {
+                        let new_world = self.worlds[self.current_index].clone();
+                        self.worlds[self.current_index + 1] = new_world;
+                        self.current_index += 1;
+                    }
+                }
+            } else {
+                self.worlds[0] = self.worlds[self.current_index].clone();
+                self.current_index = 0;
+            }
+            let idx = self.current_index;
+            self.run_once_for_world(idx, &mut s, &mut new_s);
         }
     }
 
+    pub fn run_once_for_world(&mut self, index: usize, s: &mut Vec<f64>, new_s: &mut Vec<f64>) {
+        self.minmax.norm(&self.worlds[index].state, s);
+        let a = self.learner.get_action(s, false);
+        self.worlds[index].act(&a);
+        let r = self.worlds[index].reward();
+
+        self.minmax.norm(&self.worlds[index].state, new_s);
+        self.learner.step(s, new_s, &a,
+                            normalize(&self.reward_range, r, &TRANGE));
+        self.last_reward = r;
+    }
+
     pub fn current_world(&self) -> &World {
-        &self.worlds[0]
+        &self.worlds[self.current_index]
     }
 
     pub fn v_fn(&self, n: u32) -> Box<Fn(f64) -> f64> {
