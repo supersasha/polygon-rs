@@ -189,6 +189,7 @@ impl World {
         self.state[n] = self.car.speed; // / 1.0; // !!!
         self.state[n+1] = self.car.wheels_angle; // / 1.0; // !!!
         self.state[n+2] = self.car.action_penalty3(&self.last_action);
+        self.state[n+3] = self.way.offset(&self.old_way_point, &self.way_point);
     }
 
     fn nrays(&self) -> usize {
@@ -225,7 +226,7 @@ impl Polygon {
         let walls = Rc::new(clover(4.0, scale));
         let way = Rc::new(Way::new(&clover_data, scale));
         let action_dim = 2;
-        let state_dim = nrays + 2 + 1;
+        let state_dim = nrays + 4; // speed + angle + action_penalty + offset
         let world = World::new(nrays,
                                 walls.clone(),
                                 way.clone(),
@@ -345,9 +346,10 @@ impl Polygon {
         for i in 0..state_dim-2 {
             state_ranges[i] = Range::new(0.0, 10.0);
         }
-        state_ranges[state_dim-3] = Range::new(-1.0, 1.0);
-        state_ranges[state_dim-2] = Range::new(-PI/4.0, PI/4.0);
-        state_ranges[state_dim-1] = Range::new(0.0, 100.0);
+        state_ranges[state_dim-4] = Range::new(-1.0, 1.0);       // speed
+        state_ranges[state_dim-3] = Range::new(-PI/4.0, PI/4.0); // angle
+        state_ranges[state_dim-2] = Range::new(0.0, 100.0);      // action penalty
+        state_ranges[state_dim-1] = Range::new(-2.0, 2.0);       // offset
         state_ranges
     }
 }

@@ -125,10 +125,11 @@ pub fn run(workspace: &str) {
                               Rect::new(0.0, 1.0, 2.0, 0.0));
 
     let mut pg = Polygon::new(ws_dir.clone());
+    let state_dim = pg.current_world().state.len() as i32;
     let mut v_fn = Vec::new();
     let mut ac_fn0 = Vec::new();
     let mut ac_fn1 = Vec::new();
-    for i in 0..39 {
+    for i in 0..state_dim {
         v_fn.push(pg.v_fn(i as u32));
         ac_fn0.push(pg.ac_fn(i as u32, 0));
         ac_fn1.push(pg.ac_fn(i as u32, 1));
@@ -194,8 +195,8 @@ pub fn run(workspace: &str) {
                 },
                 event::KeyPressed { code: Key::I, ..} => {
                     v_n += 1;
-                    if v_n > 38 {
-                        v_n = 38;
+                    if v_n > state_dim-1 {
+                        v_n = state_dim-1;
                     }
                 },
                 event::KeyPressed { code: Key::U, ..} => {
