@@ -318,7 +318,7 @@ impl Polygon {
     }
 
     pub fn v_fn(&self, n: u32) -> Box<Fn(f64) -> f64> {
-        let s = self.worlds[0].state.clone();
+        let s = self.current_world().state.clone();
         let f = self.learner.v_fn();
         Box::new(move |x| {
             let mut state = s.clone();
@@ -329,7 +329,7 @@ impl Polygon {
     }
 
     pub fn ac_fn(&self, n: u32, m: u32) -> Box<Fn(f64) -> f64> {
-        let s = self.worlds[0].state.clone();
+        let s = self.current_world().state.clone();
         let f = self.learner.ac_fn();
         Box::new(move |x| {
             let mut state = s.clone();
