@@ -137,6 +137,7 @@ impl Way {
         for i in 0..len {
             points.push(scale * Pt::from_slice(&points0[i]));
         }
+        // Number of segment is equal to the number of point of the beginning of the segment
         for i in 0..len-1 {
             segment_len.push((points[i+1] - points[i]).norm());
         }
@@ -170,14 +171,23 @@ impl Way {
 
     pub fn offset(&self, old: &WayPoint, new: &WayPoint) -> f64 {
         if new.segment == old.segment {
+            //println!("1");
+            //println!("oo: {}, no: {}", old.offset, new.offset);
             new.offset - old.offset
-        } else if (new.segment - old.segment == 1)
-               || ((new.segment == self.count - 1) && (old.segment == 0)) {
-            self.segment_len[old.segment as usize] - old.offset + new.offset
-        } else if (old.segment - new.segment == 1)
+        } else if (new.segment - old.segment == 1) // going to the next segment
                || ((old.segment == self.count - 1) && (new.segment == 0)) {
-            new.offset - self.segment_len[new.segment as usize] - old.offset
+            //println!("2");
+            //println!("oo: {}, no: {}", old.offset, new.offset);
+            self.segment_len[old.segment as usize] - old.offset + new.offset
+        } else if (old.segment - new.segment == 1) // going to the previous segment
+               || ((new.segment == self.count - 1) && (old.segment == 0)) {
+            //println!("3");
+            //println!("os: {}, ns: {}", old.segment, new.segment);
+            //println!("oo: {}, no: {}", old.offset, new.offset);
+            //println!("sl: {}", self.segment_len[new.segment as usize]);
+            self.segment_len[new.segment as usize] - new.offset + old.offset
         } else {
+            //println!("4");
             panic!("Should not be here!")
         }
     }

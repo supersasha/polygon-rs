@@ -159,8 +159,14 @@ impl World {
         let mut dist_reward = 0.0;
         let speed_reward = 1.0 - (speed - 1.0) * (speed - 1.0);
 
+        //println!("--reward");
+        //println!("center: {:?}", self.car.center);
+        //println!("course: {:?}", self.car.course);
+        //println!("speed: {:?}", self.car.speed);
+        //println!("wheels: {:?}", self.car.wheels_angle);
+        //println!("action: {:?}", self.last_action);
         let offset = self.way.offset(&self.old_way_point, &self.way_point);
-        let offset_reward = 50.0 * offset;
+        let offset_reward = 300.0 * offset;
         /*let mut speed_reward = speed;
         if speed < 0.0 {
             speed_reward /= 2.0;
@@ -177,18 +183,24 @@ impl World {
         let action_penalty = self.car.action_penalty3(&self.last_action);
         let action_reward = -action_penalty * action_penalty;
 
-        offset_reward + /*speed_reward +*/ 20.0*dist_reward + 10.0*wheels_reward + action_reward
+        offset_reward + /*speed_reward +*/ 20.0*dist_reward + 50.0*wheels_reward + action_reward
     }
 
     fn recalc_state(&mut self) {
         //self.prev_state.clone_from(&self.state);
         let n = self.nrays();
         for (i, isx) in self.car.isxs.iter().enumerate() {
-            self.state[i] = if isx.dist >= 0.0 { isx.dist } else { 10.0 }; // 10.0; // !!!
+            self.state[i] = if isx.dist < 10.0 { isx.dist } else { 10.0 }; // 10.0; // !!!
         }
         self.state[n] = self.car.speed; // / 1.0; // !!!
         self.state[n+1] = self.car.wheels_angle; // / 1.0; // !!!
         self.state[n+2] = self.car.action_penalty3(&self.last_action);
+        //println!("--recalc_state");
+        //println!("center: {:?}", self.car.center);
+        //println!("course: {:?}", self.car.course);
+        //println!("speed: {:?}", self.car.speed);
+        //println!("wheels: {:?}", self.car.wheels_angle);
+        //println!("action: {:?}", self.last_action);
         self.state[n+3] = self.way.offset(&self.old_way_point, &self.way_point);
     }
 
@@ -236,7 +248,7 @@ impl Polygon {
         let minmax = MinMax::new(&state_ranges);
         let learner = Cacla::new(&state_ranges,
                             action_dim as u32,
-                            12,   // hidden
+                            18,   // hidden
                             0.99,  // gamma
                             0.01, // alpha !!!
                             0.001, // beta
@@ -267,12 +279,13 @@ impl Polygon {
         self.learner.load(&self.ws_dir);
     }
 
-    pub fn run(&mut self, ncycles: u32) {
+    pub fn run(&mut self, ncycles: u32) -> f64 {
         let mut s = self.worlds[0].state.clone();
         let mut new_s = self.worlds[0].state.clone();
         let N = self.worlds.capacity();
         let M = 20;
         let mut rng = thread_rng();
+        let mut sum_reward = 0.0;
         for _ in 0..ncycles {
             if self.worlds.len() > N - 2 {
                 for i in 0..M {
@@ -298,20 +311,34 @@ impl Polygon {
                 self.current_index = 0;
             }
             let idx = self.current_index;
-            self.run_once_for_world(idx, &mut s, &mut new_s);
+            sum_reward += self.run_once_for_world(idx, &mut s, &mut new_s);
         }
+        sum_reward
     }
 
-    pub fn run_once_for_world(&mut self, index: usize, s: &mut Vec<f64>, new_s: &mut Vec<f64>) {
+    pub fn run_once_for_world(&mut self, index: usize, s: &mut Vec<f64>, new_s: &mut Vec<f64>) -> f64 {
         self.minmax.norm(&self.worlds[index].state, s);
         let a = self.learner.get_action(s, false);
         self.worlds[index].act(&a);
+        //println!("state(0): {:?}\n-----------------------------------", &self.worlds[index].state);
         let r = self.worlds[index].reward();
 
         self.minmax.norm(&self.worlds[index].state, new_s);
+        let mut i = 0;
+        let new_s_ = new_s.clone();
+        for x in new_s.into_iter() {
+            if *x > 0.9 || *x < -0.9 {
+                println!("x[{}]={}", i, x);
+                println!("new_s: {:?}", &new_s_);
+                println!("state: {:?}", &self.worlds[index].state);
+                panic!("Normalized out of range");
+            }
+            i += 1;
+        }
         self.learner.step(s, new_s, &a,
                             normalize(&self.reward_range, r, &TRANGE));
         self.last_reward = r;
+        r
     }
 
     pub fn current_world(&self) -> &World {
@@ -344,12 +371,12 @@ impl Polygon {
         let mut state_ranges = Vec::new();
         state_ranges.resize(state_dim, Range::zero());
         for i in 0..state_dim-2 {
-            state_ranges[i] = Range::new(0.0, 10.0);
+            state_ranges[i] = Range::new(-5.0, 20.0);
         }
-        state_ranges[state_dim-4] = Range::new(-1.0, 1.0);       // speed
-        state_ranges[state_dim-3] = Range::new(-PI/4.0, PI/4.0); // angle
-        state_ranges[state_dim-2] = Range::new(0.0, 100.0);      // action penalty
-        state_ranges[state_dim-1] = Range::new(-2.0, 2.0);       // offset
+        state_ranges[state_dim-4] = Range::new(-2.0, 2.0); //Range::new(-1.0, 1.0);       // speed
+        state_ranges[state_dim-3] = Range::new(-2.0, 2.0); //Range::new(-PI/4.0, PI/4.0); // angle
+        state_ranges[state_dim-2] = Range::new(-3000.0, 1000.0); //Range::new(0.0, 100.0);     // action penalty
+        state_ranges[state_dim-1] = Range::new(-5.0, 5.0); //Range::new(-2.0, 2.0);       // offset
         state_ranges
     }
 }

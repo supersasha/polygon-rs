@@ -79,7 +79,8 @@ impl Approx {
     }
 
     fn print(&self) {
-        self.net.print_connections();
+        //self.net.print_connections();
+        println!("Connections: {:?}", self.net.get_connections());
     }
 }
 
@@ -151,7 +152,7 @@ impl Cacla {
                             + self.state.beta * td_error * td_error;
             let n = (td_error / self.state.var.sqrt()).ceil() as usize;
             // TODO: print n if n > 5
-            if n > 5 {
+            if n > 12 {
                 println!("n = {}", n);
             }
             for _ in 0..n {

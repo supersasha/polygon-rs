@@ -4,7 +4,7 @@ use sfml::window::{Key, VideoMode, event, window_style, ContextSettings};
 use sfml::system::{Vector2f, Vector2i};
 use std::thread::sleep;
 use std::time::Duration;
-use geom::{Figure, Path};
+use geom::{Figure, Path, Pt};
 use track;
 use polygon::Polygon;
 use polyshape::{Polyshape, Polyshapable};
@@ -147,12 +147,18 @@ pub fn run(workspace: &str) {
 
     let mut screen = 0;
 
+    let mut avg_rewards = Vec::with_capacity(10000000);
+    let mut ar = 0.0;
     loop {
         if pause {
             sleep(Duration::from_millis(100));
         } else {
-            pg.run(loop_cycles);
+            ar += pg.run(loop_cycles);
             all_cycles += loop_cycles;
+            if all_cycles % 10000 == 0 {
+                avg_rewards.push(Pt::new(all_cycles as f64, ar / 10000.0));
+                ar = 0.0;
+            }
         }
         //if all_cycles % (100 * loop_cycles) == 0 {
         //    pg.save(ws_dir);
@@ -192,6 +198,9 @@ pub fn run(workspace: &str) {
                 },
                 event::KeyPressed { code: Key::Num1, ..} => {
                     screen = 1;
+                },
+                event::KeyPressed { code: Key::Num2, ..} => {
+                    screen = 2;
                 },
                 event::KeyPressed { code: Key::I, ..} => {
                     v_n += 1;
@@ -261,6 +270,13 @@ pub fn run(workspace: &str) {
             txt.set_position2f(0.0, 10.0);
             txt.set_color(&Color::black());
             window.draw(&txt);
+        } else if screen == 2 {
+            if avg_rewards.len() > 1 {
+                let mut plot_reward = Plot::newp(0.0, (avg_rewards.len()*10000) as f64, &avg_rewards);
+                plot_reward.set_viewport(10.0, 10.0, 1600.0, 500.0);
+                let mut rs = RenderStates::new(BlendMode::blend_none(), plot_reward.transform(), None, None);
+                window.draw_with_renderstates(&plot_reward, &mut rs);
+            }
         }
 
         window.display();
