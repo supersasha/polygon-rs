@@ -87,7 +87,7 @@ impl Car {
     }
 
     fn val_of_action(&self, a: f64) -> f64 {
-        a / (1.0 + a.abs())
+        a //a / (1.0 + a.abs())
     }
 
     pub fn action_penalty2(&self, action: &[f64]) -> f64 {
@@ -96,7 +96,8 @@ impl Car {
     }
 
     pub fn action_penalty3(&self, action: &[f64]) -> f64 {
-        let d = (self.speed / (1.0-self.speed.abs()) - action[0]).abs();
+        //let d = (self.speed / (1.0-self.speed.abs()) - action[0]).abs();
+        let d = (self.speed - action[0]).abs();
         d
     }
 

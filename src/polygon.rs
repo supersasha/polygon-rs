@@ -182,8 +182,9 @@ impl World {
 
         let action_penalty = self.car.action_penalty3(&self.last_action);
         let action_reward = -action_penalty * action_penalty;
+        let speed_reward = -speed*speed;
 
-        offset_reward + /*speed_reward +*/ 20.0*dist_reward + 50.0*wheels_reward + action_reward
+        offset_reward + /*speed_reward +*/ 20.0*dist_reward + 5.0*wheels_reward + action_reward + 10.0 * speed_reward
     }
 
     fn recalc_state(&mut self) {
@@ -253,15 +254,20 @@ impl Polygon {
                             0.01, // alpha !!!
                             0.001, // beta
                             0.1);  // sigma
-        let mut worlds = Vec::with_capacity(1000000);
-        worlds.push(world);
+        let mut worlds = Vec::with_capacity(20);
+        for i in 0..worlds.capacity() {
+            let mut w = world.clone();
+            //let angle = PI/4.0 * (i as f64 / worlds.capacity() as f64);
+            //w.car.course = Pt::new(angle.cos(), angle.sin());
+            worlds.push(w);
+        }
 
         Polygon {
             worlds: worlds,
             walls: walls.clone(),
             learner: learner,
             minmax: minmax,
-            reward_range: Range::new(-3000.0, 40.0), //(-4.0, 1.0) - for reward_old,
+            reward_range: Range::new(-100.0, 100.0), //(-4.0, 1.0) - for reward_old,
             last_reward: 0.0,
             stopped_cycles: 0,
             wander_cycles: 0,
@@ -283,9 +289,16 @@ impl Polygon {
         let mut s = self.worlds[0].state.clone();
         let mut new_s = self.worlds[0].state.clone();
         let N = self.worlds.capacity();
+        let mut sum_reward = 0.0;
+        for _ in 0..ncycles {
+            sum_reward += self.run_once_for_world(0, &mut s, &mut new_s);
+            for i in 1..N {
+                self.run_once_for_world(i, &mut s, &mut new_s);
+            }
+        }
+        /*
         let M = 20;
         let mut rng = thread_rng();
-        let mut sum_reward = 0.0;
         for _ in 0..ncycles {
             if self.worlds.len() > N - 2 {
                 for i in 0..M {
@@ -313,6 +326,7 @@ impl Polygon {
             let idx = self.current_index;
             sum_reward += self.run_once_for_world(idx, &mut s, &mut new_s);
         }
+        */
         sum_reward
     }
 
@@ -345,6 +359,14 @@ impl Polygon {
         &self.worlds[self.current_index]
     }
 
+    pub fn get_world(&self, idx: usize) -> &World {
+        &self.worlds[idx]
+    }
+
+    pub fn get_worlds_size(&self) -> usize {
+        self.worlds.len()
+    }
+
     pub fn v_fn(&self, n: u32) -> Box<Fn(f64) -> f64> {
         let s = self.current_world().state.clone();
         let f = self.learner.v_fn();
@@ -373,10 +395,10 @@ impl Polygon {
         for i in 0..state_dim-2 {
             state_ranges[i] = Range::new(-5.0, 20.0);
         }
-        state_ranges[state_dim-4] = Range::new(-2.0, 2.0); //Range::new(-1.0, 1.0);       // speed
-        state_ranges[state_dim-3] = Range::new(-2.0, 2.0); //Range::new(-PI/4.0, PI/4.0); // angle
-        state_ranges[state_dim-2] = Range::new(-3000.0, 1000.0); //Range::new(0.0, 100.0);     // action penalty
-        state_ranges[state_dim-1] = Range::new(-5.0, 5.0); //Range::new(-2.0, 2.0);       // offset
+        state_ranges[state_dim-4] = Range::new(-10.0, 10.0); //Range::new(-1.0, 1.0);       // speed
+        state_ranges[state_dim-3] = Range::new(-10.0, 10.0); //Range::new(-PI/4.0, PI/4.0); // angle
+        state_ranges[state_dim-2] = Range::new(-10.0, 100.0); //Range::new(0.0, 100.0);     // action penalty
+        state_ranges[state_dim-1] = Range::new(-10.0, 10.0); //Range::new(-2.0, 2.0);       // offset
         state_ranges
     }
 }

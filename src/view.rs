@@ -7,7 +7,7 @@ use std::time::Duration;
 use geom::{Figure, Path, Pt};
 use track;
 use polygon::Polygon;
-use polyshape::{Polyshape, Polyshapable};
+use polyshape::{Polyshape, Polyshapable, PolyshapeStyle};
 use std::fs;
 use std::path;
 use std::ops::Deref;
@@ -221,13 +221,25 @@ pub fn run(workspace: &str) {
         window.clear(&Color::white());
 
         if screen == 0 {
-            let world = pg.current_world();
-            let ps = world.get_polyshape(view);
+            let pss0 = PolyshapeStyle::new();
+            let mut pss1 = PolyshapeStyle::new();
+            pss1.set_outline_color(Color::red()).set_fill_color(Color::red());
+            let world = pg.get_world(0);
+            let ps = world.get_polyshape(view, &pss0);
             window.draw(&ps);
-            let car = &pg.current_world().car;
-            let ps_car = car.get_polyshape(view);
-            window.draw(&ps_car);
+
+            for i in 1..pg.get_worlds_size() {
+                let world = pg.get_world(i);
+                let car = &world.car;
+                let ps_car = car.get_polyshape(view, &pss0);
+                window.draw(&ps_car);
+            }
+
             let sigma = pg.learner.state.sigma.borrow();
+
+            let car = &pg.get_world(0).car;
+            let ps_car = car.get_polyshape(view, &pss1);
+            window.draw(&ps_car);
 
             let text = format!("Cycles: {}\nSpeed:  {}\nWheels: {}\nAct[0]: {}\n\
                                 Act[1]: {}\nReward: {}\nX: {}\nY: {}\n\

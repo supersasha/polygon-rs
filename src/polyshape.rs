@@ -18,7 +18,7 @@ impl PolyshapeStyle {
             outline_thickness: 0.2
         }
     }
-    
+
     pub fn set_fill_color(&mut self, c: Color) -> &mut PolyshapeStyle {
         self.fill_color = c;
         self
@@ -47,7 +47,7 @@ impl<'s> Polyshape<'s> {
             view: view
         }
     }
-    
+
     pub fn add_shape(&mut self, shape_impl: Box<ShapeImpl + Send>, style: &PolyshapeStyle) {
         let mut cs = CustomShape::new(shape_impl).unwrap();
         cs.set_position(&self.view.pos());
@@ -57,7 +57,7 @@ impl<'s> Polyshape<'s> {
         cs.set_outline_color(&style.outline_color);
         cs.set_outline_thickness(style.outline_thickness);
         self.shapes.push(cs);
-    }    
+    }
 }
 
 impl<'s> Drawable for Polyshape<'s> {
@@ -69,28 +69,30 @@ impl<'s> Drawable for Polyshape<'s> {
 }
 
 pub trait Polyshapable {
-    fn get_polyshape(&self, view: View) -> Polyshape;
+    fn get_polyshape(&self, view: View, pss: &PolyshapeStyle) -> Polyshape;
 }
 
 impl Polyshapable for World {
-    fn get_polyshape(&self, view: View) -> Polyshape {
+    fn get_polyshape(&self, view: View, pss: &PolyshapeStyle) -> Polyshape {
         let mut ps = Polyshape::new(view);
         for p in self.walls.paths.iter() {
-            ps.add_shape(Box::new(p.clone()), &PolyshapeStyle::new());
+            ps.add_shape(Box::new(p.clone()), pss);
         }
         ps
     }
 }
 
 impl Polyshapable for Car {
-    fn get_polyshape(&self, view: View) -> Polyshape {
+    fn get_polyshape(&self, view: View, pss: &PolyshapeStyle) -> Polyshape {
         let mut ps = Polyshape::new(view);
         for p in self.path.paths.iter() {
-            ps.add_shape(Box::new(p.clone()),
+            ps.add_shape(Box::new(p.clone()), pss);
+                /*
                 &PolyshapeStyle::new()
                     .set_outline_color(Color::red())
                     .set_fill_color(Color::red()));
+                */
         }
         ps
-    }    
+    }
 }
