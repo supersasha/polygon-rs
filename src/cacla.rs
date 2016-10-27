@@ -44,7 +44,7 @@ impl Approx {
         //let mut rs = Vec::with_capacity();
         //rs.clone_from_slice(ranges);
         let rs = ranges.to_vec();
-        let mut net = Fann::new(&[ranges.len() as u32, hidden, output]).unwrap();
+        let mut net = Fann::new(&[ranges.len() as u32, hidden, 10, output]).unwrap();
         //TODO:adjust network params
         net.set_activation_func_hidden(ActivationFunc::SigmoidSymmetric);
         net.set_activation_func_output(ActivationFunc::Linear);

@@ -4,6 +4,14 @@ pub fn clover(d: f64, scale: f64) -> Figure {
     make_track(&clover_data, d, scale)
 }
 
+pub fn obstacle(p: Pt, size: f64) -> Figure {
+    let d = 0.5 * size;
+    Figure::closed_path(&[p + Pt::new(d, d),
+                        p + Pt::new(d, -d),
+                        p + Pt::new(-d, -d),
+                        p + Pt::new(-d, d)])
+}
+
 pub fn make_track(points0: &[[f64; 2]], d: f64, scale: f64) -> Figure {
     let points = points0.iter()
         .map(|p| scale * Pt::new(p[0], p[1]))
@@ -28,7 +36,15 @@ pub fn make_track(points0: &[[f64; 2]], d: f64, scale: f64) -> Figure {
     }
     let f1 = Figure::closed_path(ps1.as_ref());
     let f2 = Figure::closed_path(ps2.as_ref());
-    Figure::compound(&[f1, f2])
+    let mut v = Vec::new();
+    v.push(f1);
+    v.push(f2);
+    /*
+    for p in points {
+        v.push(obstacle(p, 0.1 * scale));
+    }
+    */
+    Figure::compound(v.as_ref())
 }
 
 fn normalized(v: Pt) -> Pt {

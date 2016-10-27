@@ -182,9 +182,13 @@ impl World {
 
         let action_penalty = self.car.action_penalty3(&self.last_action);
         let action_reward = -action_penalty * action_penalty;
-        let speed_reward = -speed*speed;
+        let speed_penalty = -speed*speed;
+        let mut speed_reward = speed;
+        if speed < 0.0 {
+            speed_reward = -speed/2.0;
+        }
 
-        offset_reward + /*speed_reward +*/ 20.0*dist_reward + 5.0*wheels_reward + action_reward + 10.0 * speed_reward
+        /*offset_reward +*/ 10.0*speed_reward + /*speed_reward +*/ 20.0*dist_reward + 5.0*wheels_reward + action_reward + 10.0 * speed_penalty
     }
 
     fn recalc_state(&mut self) {
