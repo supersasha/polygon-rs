@@ -197,16 +197,18 @@ impl World {
         for (i, isx) in self.car.isxs.iter().enumerate() {
             self.state[i] = if isx.dist < 10.0 { isx.dist } else { 10.0 }; // 10.0; // !!!
         }
-        self.state[n] = self.car.speed; // / 1.0; // !!!
-        self.state[n+1] = self.car.wheels_angle; // / 1.0; // !!!
-        self.state[n+2] = self.car.action_penalty3(&self.last_action);
+        //self.state[n] = self.car.speed; // / 1.0; // !!!
+        //self.state[n+1] = self.car.wheels_angle; // / 1.0; // !!!
+        //self.state[n+2] = self.car.action_penalty3(&self.last_action);
+        
         //println!("--recalc_state");
         //println!("center: {:?}", self.car.center);
         //println!("course: {:?}", self.car.course);
         //println!("speed: {:?}", self.car.speed);
         //println!("wheels: {:?}", self.car.wheels_angle);
         //println!("action: {:?}", self.last_action);
-        self.state[n+3] = self.way.offset(&self.old_way_point, &self.way_point);
+        
+        //self.state[n+3] = self.way.offset(&self.old_way_point, &self.way_point);
     }
 
     fn nrays(&self) -> usize {
@@ -243,7 +245,7 @@ impl Polygon {
         let walls = Rc::new(clover(4.0, scale));
         let way = Rc::new(Way::new(&clover_data, scale));
         let action_dim = 2;
-        let state_dim = nrays + 4; // speed + angle + action_penalty + offset
+        let state_dim = nrays; //+ 4; // speed + angle + action_penalty + offset
         let world = World::new(nrays,
                                 walls.clone(),
                                 way.clone(),
@@ -255,7 +257,7 @@ impl Polygon {
                             action_dim as u32,
                             18,   // hidden
                             0.99,  // gamma
-                            0.01, // alpha !!!
+                            0.1, // alpha !!!
                             0.001, // beta
                             0.1);  // sigma
         let mut worlds = Vec::with_capacity(20);
@@ -396,13 +398,13 @@ impl Polygon {
     fn mk_state_ranges(state_dim: usize) -> Vec<Range> {
         let mut state_ranges = Vec::new();
         state_ranges.resize(state_dim, Range::zero());
-        for i in 0..state_dim-2 {
+        for i in 0..state_dim {
             state_ranges[i] = Range::new(-5.0, 20.0);
         }
-        state_ranges[state_dim-4] = Range::new(-10.0, 10.0); //Range::new(-1.0, 1.0);       // speed
-        state_ranges[state_dim-3] = Range::new(-10.0, 10.0); //Range::new(-PI/4.0, PI/4.0); // angle
-        state_ranges[state_dim-2] = Range::new(-10.0, 100.0); //Range::new(0.0, 100.0);     // action penalty
-        state_ranges[state_dim-1] = Range::new(-10.0, 10.0); //Range::new(-2.0, 2.0);       // offset
+        //state_ranges[state_dim-1] = Range::new(-10.0, 10.0); //Range::new(-1.0, 1.0);       // speed
+        //state_ranges[state_dim-1] = Range::new(-10.0, 10.0); //Range::new(-PI/4.0, PI/4.0); // angle
+        //state_ranges[state_dim-1] = Range::new(-10.0, 100.0); //Range::new(0.0, 100.0);     // action penalty
+        //state_ranges[state_dim-1] = Range::new(-10.0, 10.0); //Range::new(-2.0, 2.0);       // offset
         state_ranges
     }
 }

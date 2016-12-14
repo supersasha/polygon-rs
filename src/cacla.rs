@@ -48,7 +48,7 @@ impl Approx {
         //TODO:adjust network params
         net.set_activation_func_hidden(ActivationFunc::SigmoidSymmetric);
         net.set_activation_func_output(ActivationFunc::Linear);
-        net.randomize_weights(-0.001, 0.001);
+        //net.randomize_weights(-0.001, 0.001);
         let train_params = IncrementalParams{learning_momentum: 0.0,
                                              learning_rate: learning_rate as f32};
         net.set_train_algorithm(TrainAlgorithm::Incremental(train_params));
